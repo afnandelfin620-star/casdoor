@@ -47,22 +47,26 @@ func GetConfigString(key string) string {
 	}
 
     res, _ := web.AppConfig.String(key)
-	if res == "" {
-		if key == "staticBaseUrl" {
-			res = "https://cdn.casbin.org"
-		} else if key == "logConfig" {
-			appname, _ := web.AppConfig.String("appname")
-			res = fmt.Sprintf("{\"filename\": \"logs/%s.log\", \"maxdays\":99999, \"perm\":\"0770\"}", appname)
-        } else if key == "driverName" {
+
+    if res == "" {
+        switch key {
+        case "staticBaseUrl":
+            res = "https://cdn.casbin.org"
+        case "logConfig":
+            appname, _ := web.AppConfig.String("appname")
+            res = fmt.Sprintf("{\"filename\": \"logs/%s.log\", \"maxdays\":99999, \"perm\":\"0770\"}", appname)
+        case "driverName":
             res = "mysql"
-        } else if key == "dbName" {
+        case "dbName":
             if cftpConfig != nil {
                 res = cftpConfig.Database
             }
+        case "dataSourceName":
+            res = GetConfigDataSourceName()
         }
-	}
-
-	return res
+    }
+    
+    return res
 }
 
 func GetConfigBool(key string) bool {
