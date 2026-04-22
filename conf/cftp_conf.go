@@ -29,7 +29,7 @@ func (c* CftpConfig) GetDatabaseDSN() string {
 	if mySqlAddress == "" {
 
 		mysqlExternalServiceName := "mysql-external"
-		namespace, err := config.GetNamespace()
+		namespace, err := GetNamespace()
 		if err != nil {
 			namespace = "default"
 		}
@@ -38,11 +38,10 @@ func (c* CftpConfig) GetDatabaseDSN() string {
 		mySqlAddress = fmt.Sprintf("%s.%s.svc.cluster.local:%s", mysqlExternalServiceName, namespace, mysqlPort)
 	}
 
-    databaseDSN := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=true&loc=Local",
+    databaseDSN := fmt.Sprintf("%s:%s@tcp(%s)/",
 		c.DBUser,
 		c.DBPassword,
-		mySqlAddress,
-		c.Database)
+		mySqlAddress)
 
     return databaseDSN
 }
