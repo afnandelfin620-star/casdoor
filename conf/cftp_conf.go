@@ -25,28 +25,23 @@ type CftpConfig struct {
 }
 
 func (c* CftpConfig) GetDatabaseDSN() string {
-	mysqlExternalServiceName := os.Getenv("MYSQL_SERVICE_NAME")
-	if mysqlExternalServiceName == "" {
-		mysqlExternalServiceName = "mysql-external"
+	mySqlAddress := os.Getenv("MYSQL_ADDR")
+	if mySqlAddress == "" {
+
+		mysqlExternalServiceName := "mysql-external"
+		namespace, err := config.GetNamespace()
+		if err != nil {
+			namespace = "default"
+		}
+
+		mysqlPort := "3306"
+		mySqlAddress = fmt.Sprintf("%s.%s.svc.cluster.local:%s", mysqlExternalServiceName, namespace, mysqlPort)
 	}
 
-	namespace, err := GetNamespace()
-	if err != nil {
-		namespace = "default"
-	}
-
-	mysqlExternalServiceFullName := mysqlExternalServiceName + "." + namespace + ".svc.cluster.local"
-
-	mysqlPort := os.Getenv("MYSQL_PORT")
-	if mysqlPort == "" {
-		mysqlPort = "3306"
-	}
-
-    databaseDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true&loc=Local",
+    databaseDSN := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=true&loc=Local",
 		c.DBUser,
 		c.DBPassword,
-		mysqlExternalServiceFullName,
-		mysqlPort,
+		mySqlAddress,
 		c.Database)
 
     return databaseDSN
@@ -88,29 +83,17 @@ func GetNamespace() (string, error) {
 }
 
 func LoadCftpConfig() error {
-	// cfgserver-service name: "cfgserver", port: 50051
-	var address string
-	if IsRunningInK8s() {
-		// K8s 自动注入的环境变量名为：CFGSERVER_SERVICE_PORT
-		port := os.Getenv("CFGSERVER_SERVICE_PORT")
-		if port == "" {
-			port = "50051" // 兜底默认端口
-		}
-
+	address := os.Getenv("CFGSERVER_ADDR")
+	if address == "" {
+		port := "50051" // 兜底默认端口
 		namespace, err := GetNamespace()
 		if err != nil {
 			namespace = "default"
 		}
-
 		hostName := "cfgserver." + namespace + ".svc.cluster.local"
 		address = fmt.Sprintf("%s:%s", hostName, port) // 使用HTTP，不要使用HTTPS
-	} else {
-		address = os.Getenv("CFGSERVER_ADDR")
 	}
 
-	if address == "" {
-		return fmt.Errorf("CFGSERVER_ADDR env var is required to load config")
-	}
 	// 1. 建立 gRPC 连接 (使用新版 WithTransportCredentials)
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
