@@ -3,13 +3,18 @@ package conf
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"    
 	"encoding/json"
 	"fmt"
+	"log/slog"    
 	"os"
+	"path/filepath"    
 	"strings"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -81,6 +86,30 @@ func GetNamespace() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
+func getCfgServerTransportCreds() credentials.TransportCredentials {
+	tlsDir := strings.TrimSpace(os.Getenv("TLS_DIR"))
+	if tlsDir == "" {
+		return insecure.NewCredentials()
+	}
+
+	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+	caFile := filepath.Join(tlsDir, "ca.crt")
+	if caPEM, err := os.ReadFile(caFile); err == nil {
+		pool := x509.NewCertPool()
+		if ok := pool.AppendCertsFromPEM(caPEM); !ok {
+			slog.Warn("gRPC: failed to append CA cert", "ca_file", caFile)
+			return insecure.NewCredentials()
+		}
+
+		tlsConfig.RootCAs = pool
+	} else {
+		slog.Warn("gRPC: load ca faild", "ca_file", caFile, "error", err)
+		return insecure.NewCredentials()
+	}
+
+	return credentials.NewTLS(tlsConfig)
+}
+
 func LoadCftpConfig() error {
 	address := os.Getenv("CFGSERVER_ADDR")
 	if address == "" {
@@ -93,8 +122,10 @@ func LoadCftpConfig() error {
 		address = fmt.Sprintf("%s:%s", hostName, port) // 使用HTTP，不要使用HTTPS
 	}
 
+	transportCreds := getCfgServerTransportCreds()
+
 	// 1. 建立 gRPC 连接 (使用新版 WithTransportCredentials)
-	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(transportCreds))
 	if err != nil {
 		return fmt.Errorf("could not connect to cfgserver: %v", err)
 	}
