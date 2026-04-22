@@ -46,14 +46,20 @@ func GetConfigString(key string) string {
 		return value
 	}
 
-	res, _ := web.AppConfig.String(key)
+    res, _ := web.AppConfig.String(key)
 	if res == "" {
 		if key == "staticBaseUrl" {
 			res = "https://cdn.casbin.org"
 		} else if key == "logConfig" {
 			appname, _ := web.AppConfig.String("appname")
 			res = fmt.Sprintf("{\"filename\": \"logs/%s.log\", \"maxdays\":99999, \"perm\":\"0770\"}", appname)
-		}
+        } else if key == "driverName" {
+            res = "mysql"
+        } else if key == "dbName" {
+            if cftpConfig != nil {
+                res = cftpConfig.Database
+            }
+        }
 	}
 
 	return res
@@ -79,6 +85,10 @@ func GetConfigInt64(key string) (int64, error) {
 }
 
 func GetConfigDataSourceName() string {
+    if cftpConfig != nil {
+        return cftpConfig.GetDatabaseDSN()
+    }
+
 	dataSourceName := GetConfigString("dataSourceName")
 	return ReplaceDataSourceNameByDocker(dataSourceName)
 }

@@ -66,6 +66,11 @@ func InitFlag() {
 	if err != nil {
 		panic(fmt.Sprintf("failed to load config from %s: %v", configPath, err))
 	}
+ 
+    err = conf.LoadCftpConfig()
+    if err != nil {
+        panic(fmt.Sprintf("failed to load database config from cfgserver: %v", err))
+    }
 }
 
 func ShouldExportData() bool {

@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package pb;
+
+option go_package = "github.com/casdoor/casdoor/conf";
+
+service ConfigService {
+    // GetSystemConfig returns the configuration for the requested system as a JSON string
+    rpc GetSystemConfig (GetConfigRequest) returns (GetConfigResponse);
+}
+
+message GetConfigRequest {
+    // The identifier of the sub-system, e.g., "exam", "mail", "payment", "invoice"
+    string system_name = 1;
+}
+
+message GetConfigResponse {
+    // A serialized JSON string containing the requested configuration.
+    // The sub-system will unmarshal this JSON into its own preferred Go structures.
+    string config_json = 1;
+}
