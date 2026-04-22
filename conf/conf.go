@@ -46,6 +46,19 @@ func GetConfigString(key string) string {
 		return value
 	}
 
+    if cftpConfig != nil {
+        switch key {
+        case "driverName":
+            return "mysql"
+        case "dbName":
+            if cftpConfig != nil {
+                return cftpConfig.Database
+            }
+        case "dataSourceName":
+            return GetConfigDataSourceName()
+        }
+    }
+
     res, _ := web.AppConfig.String(key)
 
     if res == "" {
@@ -55,17 +68,9 @@ func GetConfigString(key string) string {
         case "logConfig":
             appname, _ := web.AppConfig.String("appname")
             res = fmt.Sprintf("{\"filename\": \"logs/%s.log\", \"maxdays\":99999, \"perm\":\"0770\"}", appname)
-        case "driverName":
-            res = "mysql"
-        case "dbName":
-            if cftpConfig != nil {
-                res = cftpConfig.Database
-            }
-        case "dataSourceName":
-            res = GetConfigDataSourceName()
         }
     }
-    
+
     return res
 }
 
