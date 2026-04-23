@@ -1,6 +1,5 @@
 package conf
 
-
 import (
 	"context"
 	"crypto/tls"

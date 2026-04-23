@@ -51,9 +51,7 @@ func GetConfigString(key string) string {
         case "driverName":
             return "mysql"
         case "dbName":
-            if cftpConfig != nil {
-                return cftpConfig.Database
-            }
+            return cftpConfig.Database
         case "dataSourceName":
             return GetConfigDataSourceName()
         }
