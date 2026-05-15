@@ -335,7 +335,24 @@ func UpdatePolicy(id string, ptype string, oldPolicy []string, newPolicy []strin
 	}
 }
 
+func validatePolicySub(ptype string, policy []string) error {
+	if ptype != "p" || len(policy) == 0 {
+		return nil
+	}
+	sub := policy[0]
+	if sub == "*" || sub == "built-in" || sub == "app" || sub == "app-dcr" {
+		return nil
+	}
+	if !util.IsValidULID(sub) {
+		return fmt.Errorf("invalid policy subject: %q must be a ULID (26 chars, Crockford base32)", sub)
+	}
+	return nil
+}
+
 func AddPolicy(id string, ptype string, policy []string) (bool, error) {
+	if err := validatePolicySub(ptype, policy); err != nil {
+		return false, err
+	}
 	enforcer, err := GetInitializedEnforcer(id)
 	if err != nil {
 		return false, err
@@ -349,6 +366,9 @@ func AddPolicy(id string, ptype string, policy []string) (bool, error) {
 }
 
 func RemovePolicy(id string, ptype string, policy []string) (bool, error) {
+	if err := validatePolicySub(ptype, policy); err != nil {
+		return false, err
+	}
 	enforcer, err := GetInitializedEnforcer(id)
 	if err != nil {
 		return false, err

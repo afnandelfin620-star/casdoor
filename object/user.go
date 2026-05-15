@@ -60,6 +60,7 @@ type User struct {
 	DeletedTime string `xorm:"varchar(100)" json:"deletedTime"`
 
 	Id                   string     `xorm:"varchar(100) index" json:"id"`
+	Uid                  string     `xorm:"varchar(100) unique" json:"uid"`
 	ExternalId           string     `xorm:"varchar(100) index" json:"externalId"`
 	Type                 string     `xorm:"varchar(100)" json:"type"`
 	Password             string     `xorm:"varchar(150)" json:"password"`
@@ -980,6 +981,10 @@ func AddUser(user *User, lang string) (bool, error) {
 		user.Id = id
 	}
 
+	if user.Uid == "" {
+		user.Uid = util.GenerateULID()
+	}
+
 	if user.Owner == "" || user.Name == "" {
 		return false, errors.New(i18n.Translate(lang, "user:the user's owner and name should not be empty"))
 	}
@@ -1595,4 +1600,23 @@ func UpdateUserBalance(owner string, name string, balance float64, currency stri
 	user.Balance = newBalance
 	_, err = UpdateUser(user.GetId(), user, []string{"balance"}, true)
 	return err
+}
+
+func RefreshUserUlids() (int, error) {
+	var users []User
+	err := ormer.Engine.Where("uid = '' or uid is null").Find(&users)
+	if err != nil {
+		return 0, err
+	}
+
+	count := 0
+	for i := range users {
+		users[i].Uid = util.GenerateULID()
+		affected, err := ormer.Engine.ID(core.PK{users[i].Owner, users[i].Name}).Cols("uid").Update(&users[i])
+		if err != nil {
+			return count, err
+		}
+		count += int(affected)
+	}
+	return count, nil
 }

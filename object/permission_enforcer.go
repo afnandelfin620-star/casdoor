@@ -27,7 +27,91 @@ import (
 	xormadapter "github.com/casdoor/xorm-adapter/v3"
 )
 
-func getPermissionEnforcer(p *Permission, permissionIDs ...string) (*casbin.Enforcer, error) {
+const hierarchicalActSuffix = ":hi"
+
+// HierarchicalEnforcer wraps casbin.Enforcer to provide hierarchical path matching.
+// Activated when r.act ends with ":hi" (e.g. "read:hi"). The ":hi" suffix is stripped
+// before enforcement so policies remain clean (act = "read").
+// When a direct enforce on "glms/catalog_a/sub/file" fails, it walks up the path
+// hierarchy ("glms/catalog_a/sub" → "glms/catalog_a" → "glms") and returns true
+// if any ancestor has permission.
+type HierarchicalEnforcer struct {
+	*casbin.Enforcer
+}
+
+// Enforce overrides the embedded Enforcer.Enforce.
+// If act ends with ":hi", enables hierarchical path matching; otherwise passthrough.
+func (e *HierarchicalEnforcer) Enforce(params ...interface{}) (bool, error) {
+	if len(params) >= 3 {
+		act, ok := params[2].(string)
+		if ok && strings.HasSuffix(act, hierarchicalActSuffix) {
+			return e.hierarchicalEnforce(params, act)
+		}
+	}
+	return e.Enforcer.Enforce(params...)
+}
+
+func (e *HierarchicalEnforcer) hierarchicalEnforce(params []interface{}, act string) (bool, error) {
+	hiParams := make([]interface{}, len(params))
+	copy(hiParams, params)
+	hiParams[2] = strings.TrimSuffix(act, hierarchicalActSuffix)
+
+	res, err := e.Enforcer.Enforce(hiParams...)
+	if err != nil || res {
+		return res, err
+	}
+
+	obj, ok := hiParams[1].(string)
+	if !ok || !strings.Contains(obj, "/") {
+		return false, nil
+	}
+
+	parts := strings.Split(obj, "/")
+	for i := len(parts) - 1; i > 0; i-- {
+		parentParams := make([]interface{}, len(hiParams))
+		copy(parentParams, hiParams)
+		parentParams[1] = strings.Join(parts[:i], "/")
+		if parentRes, err := e.Enforcer.Enforce(parentParams...); err == nil && parentRes {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// BatchEnforce overrides the embedded Enforcer.BatchEnforce.
+// If every request's act ends with ":hi", all get hierarchical matching;
+// otherwise the entire batch passes through to the original enforcer.
+func (e *HierarchicalEnforcer) BatchEnforce(requests [][]interface{}) ([]bool, error) {
+	allHi := true
+	for _, req := range requests {
+		if len(req) < 3 {
+			allHi = false
+			break
+		}
+		act, ok := req[2].(string)
+		if !ok || !strings.HasSuffix(act, hierarchicalActSuffix) {
+			allHi = false
+			break
+		}
+	}
+
+	if !allHi {
+		return e.Enforcer.BatchEnforce(requests)
+	}
+
+	results := make([]bool, len(requests))
+	for i, req := range requests {
+		res, err := e.Enforce(req...)
+		if err != nil {
+			return nil, err
+		}
+		results[i] = res
+	}
+	return results, nil
+}
+
+func getPermissionEnforcer(p *Permission, permissionIDs ...string) (*HierarchicalEnforcer, error) {
 	// Init an enforcer instance without specifying a model or adapter.
 	// If you specify an adapter, it will load all policies, which is a
 	// heavy process that can slow down the application.
@@ -68,7 +152,7 @@ func getPermissionEnforcer(p *Permission, permissionIDs ...string) (*casbin.Enfo
 		return nil, err
 	}
 
-	return enforcer, nil
+	return &HierarchicalEnforcer{enforcer}, nil
 }
 
 func (p *Permission) setEnforcerAdapter(enforcer *casbin.Enforcer) error {
@@ -121,22 +205,47 @@ func (p *Permission) setEnforcerModel(enforcer *casbin.Enforcer) error {
 	return nil
 }
 
+func buildUserUidMap(userIdentifiers []string) map[string]string {
+	uidMap := make(map[string]string, len(userIdentifiers))
+	for _, ident := range userIdentifiers {
+		if ident == "*" {
+			continue
+		}
+		if _, ok := uidMap[ident]; ok {
+			continue
+		}
+		user, err := GetUser(ident)
+		if err != nil || user == nil || user.Uid == "" {
+			uidMap[ident] = ident
+		} else {
+			uidMap[ident] = user.Uid
+		}
+	}
+	return uidMap
+}
+
 func getPolicies(permission *Permission) [][]string {
 	var policies [][]string
 
 	permissionId := permission.GetId()
 	domainExist := len(permission.Domains) > 0
 
-	usersAndRoles := append(permission.Users, permission.Roles...)
-	for _, userOrRole := range usersAndRoles {
+	uidMap := buildUserUidMap(permission.Users)
+	subjects := make([]string, 0, len(permission.Users)+len(permission.Roles))
+	for _, u := range permission.Users {
+		subjects = append(subjects, uidMap[u])
+	}
+	subjects = append(subjects, permission.Roles...)
+
+	for _, sub := range subjects {
 		for _, resource := range permission.Resources {
 			for _, action := range permission.Actions {
 				if domainExist {
 					for _, domain := range permission.Domains {
-						policies = append(policies, []string{userOrRole, domain, resource, action, strings.ToLower(permission.Effect), permissionId})
+						policies = append(policies, []string{sub, domain, resource, action, strings.ToLower(permission.Effect), permissionId})
 					}
 				} else {
-					policies = append(policies, []string{userOrRole, resource, action, strings.ToLower(permission.Effect), "", permissionId})
+					policies = append(policies, []string{sub, resource, action, strings.ToLower(permission.Effect), "", permissionId})
 				}
 			}
 		}
@@ -267,6 +376,28 @@ func getRuntimeGroupingPolicies(permissions []*Permission) ([][]string, error) {
 	visitedPolicies := map[string]struct{}{}
 	roleResolver := newPermissionRoleResolver()
 
+	// Collect all unique user identifiers across all resolved roles.
+	userSet := map[string]struct{}{}
+	for _, permission := range permissions {
+		for _, roleId := range permission.Roles {
+			visited := map[string]struct{}{}
+			rolesInRole, err := roleResolver.getRolesInRole(permission.Owner, roleId, visited)
+			if err != nil {
+				return nil, err
+			}
+			for _, role := range rolesInRole {
+				for _, subUser := range role.Users {
+					userSet[subUser] = struct{}{}
+				}
+			}
+		}
+	}
+	userList := make([]string, 0, len(userSet))
+	for u := range userSet {
+		userList = append(userList, u)
+	}
+	uidMap := buildUserUidMap(userList)
+
 	for _, permission := range permissions {
 		domainExist := len(permission.Domains) > 0
 		for _, roleId := range permission.Roles {
@@ -279,12 +410,13 @@ func getRuntimeGroupingPolicies(permissions []*Permission) ([][]string, error) {
 			for _, role := range rolesInRole {
 				currentRoleID := role.GetId()
 				for _, subUser := range role.Users {
+					sub := uidMap[subUser]
 					if domainExist {
 						for _, domain := range permission.Domains {
-							appendRuntimeGroupingPolicy(&groupingPolicies, visitedPolicies, newRuntimeGroupingPolicy(subUser, currentRoleID, domain))
+							appendRuntimeGroupingPolicy(&groupingPolicies, visitedPolicies, newRuntimeGroupingPolicy(sub, currentRoleID, domain))
 						}
 					} else {
-						appendRuntimeGroupingPolicy(&groupingPolicies, visitedPolicies, newRuntimeGroupingPolicy(subUser, currentRoleID, ""))
+						appendRuntimeGroupingPolicy(&groupingPolicies, visitedPolicies, newRuntimeGroupingPolicy(sub, currentRoleID, ""))
 					}
 				}
 
@@ -405,13 +537,12 @@ func getEnforcers(userId string) ([]*casbin.Enforcer, error) {
 
 	var enforcers []*casbin.Enforcer
 	for _, permission := range permissions {
-		var enforcer *casbin.Enforcer
-		enforcer, err = getPermissionEnforcer(permission)
+		hEnforcer, err := getPermissionEnforcer(permission)
 		if err != nil {
 			return nil, err
 		}
 
-		enforcers = append(enforcers, enforcer)
+		enforcers = append(enforcers, hEnforcer.Enforcer)
 	}
 	return enforcers, nil
 }

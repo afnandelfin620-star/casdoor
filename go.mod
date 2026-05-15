@@ -61,6 +61,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/modelcontextprotocol/go-sdk v1.4.0
 	github.com/nyaruka/phonenumbers v1.2.2
+	github.com/oklog/ulid/v2 v2.1.1
 	github.com/polarsource/polar-go v0.12.0
 	github.com/pquerna/otp v1.4.0
 	github.com/prometheus/client_golang v1.19.0
@@ -87,6 +88,8 @@ require (
 	golang.org/x/text v0.33.0
 	golang.org/x/time v0.8.0
 	google.golang.org/api v0.215.0
+	google.golang.org/grpc v1.79.3
+	google.golang.org/protobuf v1.36.11
 	layeh.com/radius v0.0.0-20231213012653-1006025d24f8
 	maunium.net/go/mautrix v0.22.1
 	modernc.org/sqlite v1.18.2
@@ -299,8 +302,6 @@ require (
 	google.golang.org/genproto v0.0.0-20241118233622-e639e219e697 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251202230838-ff82c1b0f217 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409 // indirect
-	google.golang.org/grpc v1.79.3 // indirect
-	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect

@@ -17,8 +17,10 @@ package util
 import (
 	"crypto/rand"
 	"math/big"
+	"time"
 
 	"github.com/google/uuid"
+	ulidlib "github.com/oklog/ulid/v2"
 	"github.com/thanhpk/randstr"
 )
 
@@ -46,6 +48,19 @@ func RandomIntn(n int) int {
 // GenerateUUID returns a random UUID v4 string.
 func GenerateUUID() string {
 	return uuid.NewString()
+}
+
+// GenerateULID returns a ULID string (time-sortable, URL-safe, 26 chars).
+// Panics if the system entropy source is unavailable.
+func GenerateULID() string {
+	ms := ulidlib.Timestamp(time.Now())
+	return ulidlib.MustNew(ms, rand.Reader).String()
+}
+
+// IsValidULID checks if a string is a valid ULID (26 chars, Crockford base32).
+func IsValidULID(s string) bool {
+	_, err := ulidlib.Parse(s)
+	return err == nil
 }
 
 // RandomStringFromCharset returns a cryptographically secure random string
