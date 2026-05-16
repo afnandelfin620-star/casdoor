@@ -56,13 +56,19 @@ func (e *HierarchicalEnforcer) hierarchicalEnforce(params []interface{}, act str
 	copy(hiParams, params)
 	hiParams[2] = strings.TrimSuffix(act, hierarchicalActSuffix)
 
+	obj, ok := hiParams[1].(string)
+	if !ok {
+		return false, nil
+	}
+	obj = strings.Trim(obj, "/")
+	hiParams[1] = obj
+
 	res, err := e.Enforcer.Enforce(hiParams...)
 	if err != nil || res {
 		return res, err
 	}
 
-	obj, ok := hiParams[1].(string)
-	if !ok || !strings.Contains(obj, "/") {
+	if !strings.Contains(obj, "/") {
 		return false, nil
 	}
 
