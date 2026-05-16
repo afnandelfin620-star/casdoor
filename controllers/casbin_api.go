@@ -79,7 +79,8 @@ func (c *ApiController) Enforce() {
 		// Convert elements: JSON-object strings and maps become anonymous structs for ABAC.
 		interfaceRequest := util.InterfaceToEnforceArray(request)
 
-		enforceResult, err := enforcer.Enforce(interfaceRequest...)
+		hEnforcer := &object.HierarchicalEnforcer{Enforcer: enforcer.Enforcer}
+	enforceResult, err := hEnforcer.Enforce(interfaceRequest...)
 		if err != nil {
 			c.ResponseError(err.Error())
 			return
@@ -220,7 +221,8 @@ func (c *ApiController) BatchEnforce() {
 		// Convert elements: JSON-object strings and maps become anonymous structs for ABAC.
 		interfaceRequests := util.InterfaceToEnforceArray2d(requests)
 
-		enforceResult, err := enforcer.BatchEnforce(interfaceRequests)
+		hEnforcer := &object.HierarchicalEnforcer{Enforcer: enforcer.Enforcer}
+	enforceResult, err := hEnforcer.BatchEnforce(interfaceRequests)
 		if err != nil {
 			c.ResponseError(err.Error())
 			return
