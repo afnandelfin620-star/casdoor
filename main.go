@@ -52,6 +52,12 @@ func main() {
 	object.InitAdapter()
 	object.CreateTables()
 
+	if ulidCount, ulidErr := object.RefreshUserUlids(); ulidErr != nil {
+		panic(fmt.Sprintf("Error backfilling user ULIDs: %v", ulidErr))
+	} else if ulidCount > 0 {
+		fmt.Printf("Backfilled ULIDs for %d existing users\n", ulidCount)
+	}
+
 	object.InitDb()
 
 	// Handle export command

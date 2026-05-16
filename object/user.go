@@ -1604,7 +1604,7 @@ func UpdateUserBalance(owner string, name string, balance float64, currency stri
 
 func RefreshUserUlids() (int, error) {
 	var users []User
-	err := ormer.Engine.Where("uid = '' or uid is null").Find(&users)
+	err := ormer.Engine.Cols("owner", "name").Where("uid = '' or uid is null").Find(&users)
 	if err != nil {
 		return 0, err
 	}
