@@ -331,6 +331,17 @@ class UserListPage extends BaseListPage {
         },
       },
       {
+        title: "UID",
+        dataIndex: "uid",
+        key: "uid",
+        width: "240px",
+        sorter: true,
+        ...this.getColumnSearchProps("uid"),
+        render: (text) => {
+          return text;
+        },
+      },
+      {
         title: i18next.t("general:Created time"),
         dataIndex: "createdTime",
         key: "createdTime",

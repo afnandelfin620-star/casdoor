@@ -86,6 +86,11 @@ func (c *ApiController) Enforce() {
 			return
 		}
 
+		if !enforcer.Fb2Owner {
+			c.ResponseOk([]bool{false}, []string{enforcer.GetModelAndAdapter()})
+			return
+		}
+
 		// Enforcer rules didn't match; fall through to owner-level enforcement
 		// using all Permissions under the enforcer's organization.
 		owner, _, _ = util.GetOwnerAndNameFromIdWithError(enforcerId)

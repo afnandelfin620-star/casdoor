@@ -14,7 +14,7 @@
 
 import React from "react";
 import Loading from "./common/Loading";
-import {Button, Card, Col, Input, Row, Select} from "antd";
+import {Button, Card, Col, Input, Row, Select, Switch} from "antd";
 import * as AdapterBackend from "./backend/AdapterBackend";
 import * as EnforcerBackend from "./backend/EnforcerBackend";
 import * as ModelBackend from "./backend/ModelBackend";
@@ -185,6 +185,16 @@ class EnforcerEditPage extends React.Component {
             })}
             options={this.state.adapters.map((adapter) => Setting.getOption(`${adapter.owner}/${adapter.name}`, `${adapter.owner}/${adapter.name}`))
             } />
+          </Col>
+        </Row>
+        <Row style={{marginTop: "20px"}} >
+          <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+            {Setting.getLabel("Fallback to owner", "If enforcer rules don't match, fall back to owner-level Permission enforcement")} :
+          </Col>
+          <Col span={1} >
+            <Switch checked={this.state.enforcer.fb2Owner} onChange={checked => {
+              this.updateEnforcerField("fb2Owner", checked);
+            }} />
           </Col>
         </Row>
         <Row style={{marginTop: "20px"}} >

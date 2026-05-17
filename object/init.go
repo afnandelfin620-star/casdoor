@@ -51,6 +51,7 @@ func getBuiltInAccountItems() []*AccountItem {
 	return []*AccountItem{
 		{Name: "Organization", Visible: true, ViewRule: "Public", ModifyRule: "Admin"},
 		{Name: "ID", Visible: true, ViewRule: "Public", ModifyRule: "Immutable"},
+		{Name: "UID", Visible: true, ViewRule: "Public", ModifyRule: "Immutable"},
 		{Name: "Name", Visible: true, ViewRule: "Public", ModifyRule: "Admin"},
 		{Name: "Display name", Visible: true, ViewRule: "Public", ModifyRule: "Self"},
 		{Name: "First name", Visible: true, ViewRule: "Public", ModifyRule: "Self"},

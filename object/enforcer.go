@@ -34,6 +34,7 @@ type Enforcer struct {
 
 	Model   string `xorm:"varchar(100)" json:"model"`
 	Adapter string `xorm:"varchar(100)" json:"adapter"`
+	Fb2Owner   bool `json:"fb2Owner"`
 
 	ModelCfg map[string]string `xorm:"-" json:"modelCfg"`
 	*casbin.Enforcer
