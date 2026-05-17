@@ -16,7 +16,9 @@ package object
 
 import (
 	"fmt"
+	"sort"
 	"strings"
+	"sync"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/config"
@@ -26,6 +28,15 @@ import (
 	"github.com/casdoor/casdoor/util"
 	xormadapter "github.com/casdoor/xorm-adapter/v3"
 )
+
+var permissionEnforcerCache sync.Map
+
+func InvalidatePermissionEnforcerCache(owner string) {
+	permissionEnforcerCache.Range(func(key, value interface{}) bool {
+		permissionEnforcerCache.Delete(key)
+		return true
+	})
+}
 
 const hierarchicalActSuffix = ":hi"
 
@@ -118,9 +129,18 @@ func (e *HierarchicalEnforcer) BatchEnforce(requests [][]interface{}) ([]bool, e
 }
 
 func getPermissionEnforcer(p *Permission, permissionIDs ...string) (*HierarchicalEnforcer, error) {
-	// Init an enforcer instance without specifying a model or adapter.
-	// If you specify an adapter, it will load all policies, which is a
-	// heavy process that can slow down the application.
+	cacheKey := p.GetId()
+	if len(permissionIDs) != 0 {
+		sorted := make([]string, len(permissionIDs))
+		copy(sorted, permissionIDs)
+		sort.Strings(sorted)
+		cacheKey = strings.Join(sorted, ",")
+	}
+
+	if cached, ok := permissionEnforcerCache.Load(cacheKey); ok {
+		return cached.(*HierarchicalEnforcer), nil
+	}
+
 	enforcer, err := casbin.NewEnforcer(&log.DefaultLogger{}, false)
 	if err != nil {
 		return nil, err
@@ -158,7 +178,9 @@ func getPermissionEnforcer(p *Permission, permissionIDs ...string) (*Hierarchica
 		return nil, err
 	}
 
-	return &HierarchicalEnforcer{enforcer}, nil
+	hEnforcer := &HierarchicalEnforcer{enforcer}
+	permissionEnforcerCache.Store(cacheKey, hEnforcer)
+	return hEnforcer, nil
 }
 
 func (p *Permission) setEnforcerAdapter(enforcer *casbin.Enforcer) error {

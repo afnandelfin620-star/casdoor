@@ -131,18 +131,21 @@ func UpdateRole(id string, role *Role, isGlobalAdmin bool, lang string) (bool, e
 		return false, err
 	}
 
-	if renameRole && affected != 0 {
-		permissions, err := GetPermissionsByRole(role.GetId())
-		if err != nil {
-			return false, err
-		}
-
-		for _, permission := range permissions {
-			err = addPolicies(permission)
+	if affected != 0 {
+		if renameRole {
+			permissions, err := GetPermissionsByRole(role.GetId())
 			if err != nil {
 				return false, err
 			}
+
+			for _, permission := range permissions {
+				err = addPolicies(permission)
+				if err != nil {
+					return false, err
+				}
+			}
 		}
+		InvalidatePermissionEnforcerCache(role.Owner)
 	}
 
 	return affected != 0, nil
@@ -152,6 +155,10 @@ func AddRole(role *Role) (bool, error) {
 	affected, err := ormer.Engine.Insert(role)
 	if err != nil {
 		return false, err
+	}
+
+	if affected != 0 {
+		InvalidatePermissionEnforcerCache(role.Owner)
 	}
 
 	return affected != 0, nil
@@ -219,7 +226,16 @@ func DeleteRole(role *Role) (bool, error) {
 		}
 	}
 
-	return deleteRole(role)
+	affected, err := deleteRole(role)
+	if err != nil {
+		return false, err
+	}
+
+	if affected {
+		InvalidatePermissionEnforcerCache(role.Owner)
+	}
+
+	return affected, nil
 }
 
 func (role *Role) GetId() string {

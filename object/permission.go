@@ -164,20 +164,12 @@ func UpdatePermission(id string, permission *Permission) (bool, error) {
 			return false, err
 		}
 
-		// if oldPermission.Adapter != "" && oldPermission.Adapter != permission.Adapter {
-		// 	isEmpty, _ := ormer.Engine.IsTableEmpty(oldPermission.Adapter)
-		// 	if isEmpty {
-		// 		err = ormer.Engine.DropTables(oldPermission.Adapter)
-		// 		if err != nil {
-		// 			return false, err
-		// 		}
-		// 	}
-		// }
-
 		err = addPolicies(permission)
 		if err != nil {
 			return false, err
 		}
+
+		InvalidatePermissionEnforcerCache(permission.Owner)
 	}
 
 	return affected != 0, nil
@@ -194,6 +186,7 @@ func AddPermission(permission *Permission) (bool, error) {
 		if err != nil {
 			return false, err
 		}
+		InvalidatePermissionEnforcerCache(permission.Owner)
 	}
 
 	return affected != 0, nil
@@ -275,15 +268,7 @@ func DeletePermission(permission *Permission) (bool, error) {
 			return false, err
 		}
 
-		// if permission.Adapter != "" && permission.Adapter != "permission_rule" {
-		// 	isEmpty, _ := ormer.Engine.IsTableEmpty(permission.Adapter)
-		// 	if isEmpty {
-		// 		err = ormer.Engine.DropTables(permission.Adapter)
-		// 		if err != nil {
-		// 			return false, err
-		// 		}
-		// 	}
-		// }
+		InvalidatePermissionEnforcerCache(permission.Owner)
 	}
 
 	return affected, nil
