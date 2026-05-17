@@ -73,24 +73,26 @@ func (c *ApiController) Enforce() {
 			return
 		}
 
-		res := []bool{}
-		keyRes := []string{}
-
-		// Convert elements: JSON-object strings and maps become anonymous structs for ABAC.
 		interfaceRequest := util.InterfaceToEnforceArray(request)
-
 		hEnforcer := &object.HierarchicalEnforcer{Enforcer: enforcer.Enforcer}
-	enforceResult, err := hEnforcer.Enforce(interfaceRequest...)
+		enforceResult, err := hEnforcer.Enforce(interfaceRequest...)
 		if err != nil {
 			c.ResponseError(err.Error())
 			return
 		}
 
-		res = append(res, enforceResult)
-		keyRes = append(keyRes, enforcer.GetModelAndAdapter())
+		if enforceResult {
+			c.ResponseOk([]bool{true}, []string{enforcer.GetModelAndAdapter()})
+			return
+		}
 
-		c.ResponseOk(res, keyRes)
-		return
+		// Enforcer rules didn't match; fall through to owner-level enforcement
+		// using all Permissions under the enforcer's organization.
+		owner, _, _ = util.GetOwnerAndNameFromIdWithError(enforcerId)
+		if owner == "" {
+			c.ResponseOk([]bool{false}, []string{enforcer.GetModelAndAdapter()})
+			return
+		}
 	}
 
 	if permissionId != "" {
