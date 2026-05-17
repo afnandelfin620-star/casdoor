@@ -17,8 +17,10 @@ package object
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/casbin/casbin/v2"
+	"github.com/casdoor/casdoor/conf"
 	"github.com/casdoor/casdoor/util"
 	xormadapter "github.com/casdoor/xorm-adapter/v3"
 	"github.com/xorm-io/core"
@@ -192,6 +194,19 @@ func GetInitializedEnforcer(enforcerId string) (*Enforcer, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Merge permission_rule p-type policies and role g rules from the Web UI
+	// into the enforcer's in-memory model, so that a single enforce call
+	// can match both business-written rules and UI-managed permissions.
+	if enforcer.Owner != "built-in" && conf.GetConfigString("driverName") != "" {
+		if err := loadPermissionPolicies(enforcer.Enforcer, enforcer.Owner); err != nil {
+			return nil, err
+		}
+		if err := loadOwnerGroupingPolicies(enforcer.Enforcer, enforcer.Owner); err != nil {
+			return nil, err
+		}
+	}
+
 	return enforcer, nil
 }
 
@@ -399,4 +414,97 @@ func (enforcer *Enforcer) LoadModelCfg() error {
 	}
 
 	return nil
+}
+
+func loadPermissionPolicies(enforcer *casbin.Enforcer, owner string) error {
+	permissions, err := GetPermissions(owner)
+	if err != nil {
+		return err
+	}
+
+	fieldCount := 0
+	if p, ok := enforcer.GetModel()["p"]; ok {
+		if pDef, ok := p["p"]; ok {
+			fieldCount = len(strings.Split(pDef.Value, ","))
+		}
+	}
+
+	var allPolicies [][]string
+	for _, permission := range permissions {
+		if !permission.IsEnabled {
+			continue
+		}
+		policies := getPolicies(permission)
+		for _, policy := range policies {
+			if fieldCount > 0 && len(policy) > fieldCount {
+				policy = policy[:fieldCount]
+			}
+			allPolicies = append(allPolicies, policy)
+		}
+	}
+
+	if len(allPolicies) == 0 {
+		return nil
+	}
+
+	enforcer.EnableAutoSave(false)
+	defer enforcer.EnableAutoSave(true)
+	_, err = enforcer.AddPolicies(allPolicies)
+	return err
+}
+
+func loadOwnerGroupingPolicies(enforcer *casbin.Enforcer, owner string) error {
+	if !HasRoleDefinition(enforcer.GetModel()) {
+		return nil
+	}
+
+	roles, err := GetRoles(owner)
+	if err != nil {
+		return err
+	}
+
+	userSet := map[string]struct{}{}
+	for _, role := range roles {
+		for _, u := range role.Users {
+			userSet[u] = struct{}{}
+		}
+	}
+	userList := make([]string, 0, len(userSet))
+	for u := range userSet {
+		userList = append(userList, u)
+	}
+	uidMap := buildUserUidMap(userList)
+
+	var groupingPolicies [][]string
+	visited := map[string]struct{}{}
+
+	for _, role := range roles {
+		roleId := role.GetId()
+		for _, u := range role.Users {
+			sub := uidMap[u]
+			rule := []string{sub, roleId, "", "", "", ""}
+			key := strings.Join(rule, "\x00")
+			if _, ok := visited[key]; !ok {
+				groupingPolicies = append(groupingPolicies, rule)
+				visited[key] = struct{}{}
+			}
+		}
+		for _, subRole := range role.Roles {
+			rule := []string{subRole, roleId, "", "", "", ""}
+			key := strings.Join(rule, "\x00")
+			if _, ok := visited[key]; !ok {
+				groupingPolicies = append(groupingPolicies, rule)
+				visited[key] = struct{}{}
+			}
+		}
+	}
+
+	if len(groupingPolicies) == 0 {
+		return nil
+	}
+
+	enforcer.EnableAutoSave(false)
+	defer enforcer.EnableAutoSave(true)
+	_, err = enforcer.AddGroupingPolicies(groupingPolicies)
+	return err
 }
