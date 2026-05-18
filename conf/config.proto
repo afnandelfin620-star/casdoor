@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package pb;
+package cfgserver;
 
 option go_package = "github.com/casdoor/casdoor/conf";
 

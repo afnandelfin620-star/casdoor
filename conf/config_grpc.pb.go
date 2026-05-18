@@ -19,7 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ConfigService_GetSystemConfig_FullMethodName = "/pb.ConfigService/GetSystemConfig"
+	ConfigService_GetSystemConfig_FullMethodName = "/cfgserver.ConfigService/GetSystemConfig"
 )
 
 // ConfigServiceClient is the client API for ConfigService service.
@@ -110,7 +110,7 @@ func _ConfigService_GetSystemConfig_Handler(srv interface{}, ctx context.Context
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ConfigService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "pb.ConfigService",
+	ServiceName: "cfgserver.ConfigService",
 	HandlerType: (*ConfigServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

@@ -116,15 +116,15 @@ var File_config_proto protoreflect.FileDescriptor
 
 const file_config_proto_rawDesc = "" +
 	"\n" +
-	"\fconfig.proto\x12\x02pb\"3\n" +
+	"\fconfig.proto\x12\tcfgserver\"3\n" +
 	"\x10GetConfigRequest\x12\x1f\n" +
 	"\vsystem_name\x18\x01 \x01(\tR\n" +
 	"systemName\"4\n" +
 	"\x11GetConfigResponse\x12\x1f\n" +
 	"\vconfig_json\x18\x01 \x01(\tR\n" +
-	"configJson2O\n" +
-	"\rConfigService\x12>\n" +
-	"\x0fGetSystemConfig\x12\x14.pb.GetConfigRequest\x1a\x15.pb.GetConfigResponseB!Z\x1fgithub.com/casdoor/casdoor/confb\x06proto3"
+	"configJson2]\n" +
+	"\rConfigService\x12L\n" +
+	"\x0fGetSystemConfig\x12\x1b.cfgserver.GetConfigRequest\x1a\x1c.cfgserver.GetConfigResponseB!Z\x1fgithub.com/casdoor/casdoor/confb\x06proto3"
 
 var (
 	file_config_proto_rawDescOnce sync.Once
@@ -140,12 +140,12 @@ func file_config_proto_rawDescGZIP() []byte {
 
 var file_config_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_config_proto_goTypes = []any{
-	(*GetConfigRequest)(nil),  // 0: pb.GetConfigRequest
-	(*GetConfigResponse)(nil), // 1: pb.GetConfigResponse
+	(*GetConfigRequest)(nil),  // 0: cfgserver.GetConfigRequest
+	(*GetConfigResponse)(nil), // 1: cfgserver.GetConfigResponse
 }
 var file_config_proto_depIdxs = []int32{
-	0, // 0: pb.ConfigService.GetSystemConfig:input_type -> pb.GetConfigRequest
-	1, // 1: pb.ConfigService.GetSystemConfig:output_type -> pb.GetConfigResponse
+	0, // 0: cfgserver.ConfigService.GetSystemConfig:input_type -> cfgserver.GetConfigRequest
+	1, // 1: cfgserver.ConfigService.GetSystemConfig:output_type -> cfgserver.GetConfigResponse
 	1, // [1:2] is the sub-list for method output_type
 	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
