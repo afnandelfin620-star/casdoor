@@ -24,6 +24,7 @@ import (
 	"github.com/casdoor/casdoor/authz"
 	"github.com/casdoor/casdoor/conf"
 	"github.com/casdoor/casdoor/controllers"
+	"github.com/casdoor/casdoor/email"
 	"github.com/casdoor/casdoor/ldap"
 	"github.com/casdoor/casdoor/object"
 	"github.com/casdoor/casdoor/proxy"
@@ -75,6 +76,7 @@ func main() {
 	object.InitLogProviders()
 	object.InitLdapAutoSynchronizer()
 	proxy.InitHttpClient()
+	email.InitNatsConnection()
 	authz.InitApi()
 	object.InitUserManager()
 	object.InitFromFile()

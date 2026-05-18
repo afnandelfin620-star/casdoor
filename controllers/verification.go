@@ -328,11 +328,6 @@ func (c *ApiController) SendVerificationCode() {
 			c.ResponseError(err.Error())
 			return
 		}
-		if provider == nil {
-			c.ResponseError(fmt.Sprintf(c.T("verification:please add an Email provider to the \"Providers\" list for the application: %s"), application.Name))
-			return
-		}
-
 		sendResp = object.SendVerificationCodeToEmail(organization, user, provider, clientIp, vform.Dest, vform.Method, c.Ctx.Request.Host, application.Name, application)
 	case object.VerifyTypePhone:
 		if vform.Method == LoginVerification || vform.Method == ForgetVerification {
