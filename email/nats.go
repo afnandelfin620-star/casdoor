@@ -15,13 +15,16 @@
 package email
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/beego/beego/v2/core/logs"
 	"github.com/nats-io/nats.go"
+	ulidlib "github.com/oklog/ulid/v2"
 )
 
 var globalNatsConn *nats.Conn
@@ -103,19 +106,27 @@ func CloseNatsConnection() {
 	}
 }
 
-// PublishEmail publishes an email message to NATS JetStream for the gmail
-// microservice to consume. mailID provides idempotency — if Casdoor retries
-// the publish with the same mailID, gmail will not send duplicate emails.
-// businessUnit identifies the source, e.g. "casdoor/verification" or
-// "casdoor/invitation".
-func PublishEmail(mailID, businessUnit, fromAddress, fromName string, toAddresses []string, subject, content string) error {
+// InnerNatsEmailProvider publishes email content to NATS JetStream. The gmail
+// microservice consumes the messages and sends the emails. Unlike SMTP providers,
+// InnerNATS has no SMTP credentials — only templates (Title, Content, Metadata).
+type InnerNatsEmailProvider struct {
+	businessUnit string
+}
+
+func NewInnerNatsEmailProvider(businessUnit string) *InnerNatsEmailProvider {
+	return &InnerNatsEmailProvider{businessUnit: businessUnit}
+}
+
+// Send implements the EmailProvider interface. The content is already rendered
+// from the provider's templates by SendVerificationCodeToEmail or SendEmail.
+func (p *InnerNatsEmailProvider) Send(fromAddress, fromName string, toAddresses []string, subject, content string) error {
 	if globalJetStream == nil {
 		return fmt.Errorf("NATS JetStream is not available")
 	}
 
 	msg := EmailMessage{
-		MailID:       mailID,
-		BusinessUnit: businessUnit,
+		MailID:       generateULID(),
+		BusinessUnit: p.businessUnit,
 		FromAddress:  fromAddress,
 		FromName:     fromName,
 		ToAddresses:  toAddresses,
@@ -139,4 +150,9 @@ func PublishEmail(mailID, businessUnit, fromAddress, fromName string, toAddresse
 	}
 
 	return nil
+}
+
+func generateULID() string {
+	ms := ulidlib.Timestamp(time.Now())
+	return ulidlib.MustNew(ms, rand.Reader).String()
 }

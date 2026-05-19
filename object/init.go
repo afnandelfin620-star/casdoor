@@ -349,6 +349,17 @@ func initBuiltInProvider() {
 			Category:    "Payment",
 			Type:        "Dummy",
 		},
+		{
+			Owner:       "admin",
+			Name:        "provider_email_inner_nats",
+			CreatedTime: util.GetCurrentTime(),
+			DisplayName: "InnerNATS Email",
+			Category:    "Email",
+			Type:        "InnerNATS",
+			Title:       "Casdoor Verification Code",
+			Content:     "You have requested a verification code at Casdoor. Here is your code: %s, please enter in 5 minutes.",
+			Metadata:    "<p>Hi,</p><p>You are invited to join Casdoor. Here is your invitation code: <b>%code</b>. Click <a href=\"%link\">here</a> to sign up.</p>",
+		},
 	}
 
 	for _, provider := range providers {

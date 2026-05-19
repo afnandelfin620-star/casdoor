@@ -26,6 +26,8 @@ func GetEmailProvider(typ string, clientId string, clientSecret string, host str
 		return NewHttpEmailProvider(endpoint, method, httpHeaders, bodyMapping, contentType)
 	case "SendGrid":
 		return NewSendgridEmailProvider(clientSecret, host, endpoint)
+	case "InnerNATS":
+		return NewInnerNatsEmailProvider("casdoor")
 	case "Resend":
 		return NewResendEmailProvider(clientSecret)
 	default:

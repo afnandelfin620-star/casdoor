@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/casdoor/casdoor/conf"
-	"github.com/casdoor/casdoor/email"
 	"github.com/casdoor/casdoor/i18n"
 	"github.com/casdoor/casdoor/util"
 	"github.com/xorm-io/core"
@@ -110,29 +109,8 @@ func IsAllowSend(user *User, remoteAddr, recordType string, application *Applica
 
 func SendVerificationCodeToEmail(organization *Organization, user *User, provider *Provider, remoteAddr string, dest string, method string, host string, applicationName string, application *Application) error {
 	sender := organization.DisplayName
-	code := getRandomCode(6)
-
-	if provider == nil {
-		err := IsAllowSend(user, remoteAddr, "Email", application)
-		if err != nil {
-			return err
-		}
-
-		mailID := util.GenerateULID()
-			err = email.PublishEmail(mailID, "casdoor/verification", "", "", []string{dest}, "", code)
-		if err != nil {
-			return err
-		}
-
-		err = AddToVerificationRecord(user, nil, organization, remoteAddr, "Email", dest, code)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}
-
 	title := provider.Title
+	code := getRandomCode(6)
 	// if organization.MasterVerificationCode != "" {
 	//	code = organization.MasterVerificationCode
 	// }
@@ -216,10 +194,7 @@ func AddToVerificationRecord(user *User, provider *Provider, organization *Organ
 	record.Name = util.GenerateId()
 	record.CreatedTime = util.GetCurrentTime()
 
-	record.Provider = ""
-	if provider != nil {
-		record.Provider = provider.Name
-	}
+	record.Provider = provider.Name
 	record.Receiver = dest
 	record.Code = code
 	record.Time = time.Now().Unix()

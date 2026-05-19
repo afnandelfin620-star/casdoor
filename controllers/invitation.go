@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/beego/beego/v2/core/utils/pagination"
-	"github.com/casdoor/casdoor/email"
 	"github.com/casdoor/casdoor/object"
 	"github.com/casdoor/casdoor/util"
 )
@@ -265,14 +264,7 @@ func (c *ApiController) SendInvitation() {
 		return
 	}
 	if provider == nil {
-		mailID := util.GenerateULID()
-		content := fmt.Sprintf(`{"code":"%s","link":"%s"}`, invitation.Code, invitation.GetInvitationLink(c.Ctx.Request.Host, application.Name))
-		err := email.PublishEmail(mailID, "casdoor/invitation", "", "", destinations, "", content)
-		if err != nil {
-			c.ResponseError(err.Error())
-			return
-		}
-		c.ResponseOk()
+		c.ResponseError(fmt.Sprintf(c.T("verification:please add an Email provider to the \"Providers\" list for the application: %s"), invitation.Owner))
 		return
 	}
 

@@ -1336,6 +1336,7 @@ export function getProviderTypeOptions(category) {
         {id: "SendGrid", name: "SendGrid"},
         {id: "Custom HTTP Email", name: "Custom HTTP Email"},
         {id: "Resend", name: "Resend"},
+        {id: "InnerNATS", name: "InnerNATS"},
       ]
     );
   } else if (category === "SMS") {
