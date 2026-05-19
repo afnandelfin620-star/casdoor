@@ -471,6 +471,61 @@ func getUserById(owner string, id string) (*User, error) {
 	}
 }
 
+type UserIdInfo struct {
+	Ulid string `json:"ulid"`
+	Uuid string `json:"uuid"`
+	Id   string `json:"id"`
+}
+
+// GetUserIdInfo looks up a user by one of three identifier types and returns
+// all three identifiers (ulid=Uid, uuid=Id, id=owner/name).
+func GetUserIdInfo(byUid, byUUID, byId string) (*UserIdInfo, error) {
+	var user *User
+
+	switch {
+	case byUid != "":
+		u := User{Uid: byUid}
+		existed, e := ormer.Engine.Get(&u)
+		if e != nil {
+			return nil, e
+		}
+		if existed {
+			user = &u
+		}
+	case byUUID != "":
+		u := User{Id: byUUID}
+		existed, e := ormer.Engine.Get(&u)
+		if e != nil {
+			return nil, e
+		}
+		if existed {
+			user = &u
+		}
+	case byId != "":
+		owner, name, e := util.GetOwnerAndNameFromIdWithError(byId)
+		if e != nil {
+			return nil, e
+		}
+		u, e := getUser(owner, name)
+		if e != nil {
+			return nil, e
+		}
+		user = u
+	default:
+		return nil, fmt.Errorf("one of byUid, byUUID, or byId must be provided")
+	}
+
+	if user == nil {
+		return nil, nil
+	}
+
+	return &UserIdInfo{
+		Ulid: user.Uid,
+		Uuid: user.Id,
+		Id:   user.GetId(),
+	}, nil
+}
+
 func getUserByWechatId(owner string, wechatOpenId string, wechatUnionId string) (*User, error) {
 	if wechatUnionId == "" {
 		wechatUnionId = wechatOpenId

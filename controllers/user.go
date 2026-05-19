@@ -436,6 +436,30 @@ func (c *ApiController) DeleteUser() {
 	c.ServeJSON()
 }
 
+// GetUserIds
+// @Title GetUserIds
+// @Tag User API
+// @Description get user ids (ulid, uuid, id) by one of byUid, byUUID, or byId
+// @Param   byUid    query    string  false        "The Uid of the user"
+// @Param   byUUID   query    string  false        "The Id (UUID) of the user"
+// @Param   byId     query    string  false        "The id (owner/name) of the user"
+// @Success 200 {object} object.UserIdInfo The Response object
+// @router /get-user-ids [get]
+func (c *ApiController) GetUserIds() {
+	byUid := c.Ctx.Input.Query("byUid")
+	byUUID := c.Ctx.Input.Query("byUUID")
+	byId := c.Ctx.Input.Query("byId")
+
+	info, err := object.GetUserIdInfo(byUid, byUUID, byId)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	c.ResponseOk(info)
+}
+
+
 // GetEmailAndPhone
 // @Title GetEmailAndPhone
 // @Tag User API
