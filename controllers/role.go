@@ -125,6 +125,60 @@ func (c *ApiController) AddRole() {
 	c.ServeJSON()
 }
 
+// AddUserToRole
+// @Title AddUserToRole
+// @Tag Role API
+// @Description add a user to a role
+// @Param   id     query    string  true        "The id ( owner/name ) of the role"
+// @Param   userId query    string  true        "The id ( owner/name ) of the user"
+// @Success 200 {object} controllers.Response The Response object
+// @router /add-user-to-role [post]
+func (c *ApiController) AddUserToRole() {
+	id := c.Ctx.Input.Query("id")
+	userId := c.Ctx.Input.Query("userId")
+
+	owner, roleName, err := util.GetOwnerAndNameFromIdWithError(id)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	err = object.AddUserToRole(owner, roleName, userId)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	c.ResponseOk()
+}
+
+// RemoveUserFromRole
+// @Title RemoveUserFromRole
+// @Tag Role API
+// @Description remove a user from a role
+// @Param   id     query    string  true        "The id ( owner/name ) of the role"
+// @Param   userId query    string  true        "The id ( owner/name ) of the user"
+// @Success 200 {object} controllers.Response The Response object
+// @router /remove-user-from-role [post]
+func (c *ApiController) RemoveUserFromRole() {
+	id := c.Ctx.Input.Query("id")
+	userId := c.Ctx.Input.Query("userId")
+
+	owner, roleName, err := util.GetOwnerAndNameFromIdWithError(id)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	err = object.RemoveUserFromRole(owner, roleName, userId)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+
+	c.ResponseOk()
+}
+
 // DeleteRole
 // @Title DeleteRole
 // @Tag Role API

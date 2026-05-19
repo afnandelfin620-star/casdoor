@@ -420,6 +420,7 @@ func organizationChangeTrigger(oldName string, newName string) error {
 	application.Organization = newName
 	_, err = session.Where("organization=?", oldName).Update(application)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 
@@ -427,6 +428,7 @@ func organizationChangeTrigger(oldName string, newName string) error {
 	user.Owner = newName
 	_, err = session.Where("owner=?", oldName).Update(user)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 
@@ -434,75 +436,111 @@ func organizationChangeTrigger(oldName string, newName string) error {
 	group.Owner = newName
 	_, err = session.Where("owner=?", oldName).Update(group)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 
-	role := new(Role)
-	_, err = ormer.Engine.Where("owner=?", oldName).Get(role)
+	var roles []*Role
+	err = session.Where("owner=?", oldName).Find(&roles)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
-	for i, u := range role.Users {
-		// u = organization/username
-		owner, name, err := util.GetOwnerAndNameFromIdWithError(u)
+	for _, r := range roles {
+		lockedRole := &Role{Owner: r.Owner, Name: r.Name}
+		existed, err := session.ForUpdate().Get(lockedRole)
 		if err != nil {
+			_ = session.Rollback()
 			return err
 		}
-		if name == oldName {
-			role.Users[i] = util.GetId(owner, newName)
+		if !existed {
+			continue
 		}
-	}
-	for i, u := range role.Roles {
-		// u = organization/username
-		owner, name, err := util.GetOwnerAndNameFromIdWithError(u)
+
+		for i, u := range lockedRole.Users {
+			// u = organization/username — rename org (owner) part
+			owner, name, err := util.GetOwnerAndNameFromIdWithError(u)
+			if err != nil {
+				_ = session.Rollback()
+				return err
+			}
+			if owner == oldName {
+				lockedRole.Users[i] = util.GetId(newName, name)
+			}
+		}
+		for i, u := range lockedRole.Roles {
+			// u = organization/rolename — rename org (owner) part
+			owner, name, err := util.GetOwnerAndNameFromIdWithError(u)
+			if err != nil {
+				_ = session.Rollback()
+				return err
+			}
+			if owner == oldName {
+				lockedRole.Roles[i] = util.GetId(newName, name)
+			}
+		}
+		oldOwner := lockedRole.Owner
+		lockedRole.Owner = newName
+		_, err = session.ID(core.PK{oldOwner, lockedRole.Name}).Cols("owner", "users", "roles").Update(lockedRole)
 		if err != nil {
+			_ = session.Rollback()
 			return err
 		}
-		if name == oldName {
-			role.Roles[i] = util.GetId(owner, newName)
-		}
-	}
-	role.Owner = newName
-	_, err = session.Where("owner=?", oldName).Update(role)
-	if err != nil {
-		return err
 	}
 
-	permission := new(Permission)
-	_, err = ormer.Engine.Where("owner=?", oldName).Get(permission)
+	var permissions []*Permission
+	err = session.Where("owner=?", oldName).Find(&permissions)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
-	for i, u := range permission.Users {
-		// u = organization/username
-		owner, name, err := util.GetOwnerAndNameFromIdWithError(u)
+	for _, p := range permissions {
+		lockedPerm := &Permission{Owner: p.Owner, Name: p.Name}
+		existed, err := session.ForUpdate().Get(lockedPerm)
 		if err != nil {
+			_ = session.Rollback()
 			return err
 		}
-		if name == oldName {
-			permission.Users[i] = util.GetId(owner, newName)
+		if !existed {
+			continue
 		}
-	}
-	for i, u := range permission.Roles {
-		// u = organization/username
-		owner, name, err := util.GetOwnerAndNameFromIdWithError(u)
+
+		for i, u := range lockedPerm.Users {
+			// u = organization/username — rename org (owner) part
+			owner, name, err := util.GetOwnerAndNameFromIdWithError(u)
+			if err != nil {
+				_ = session.Rollback()
+				return err
+			}
+			if owner == oldName {
+				lockedPerm.Users[i] = util.GetId(newName, name)
+			}
+		}
+		for i, u := range lockedPerm.Roles {
+			// u = organization/rolename — rename org (owner) part
+			owner, name, err := util.GetOwnerAndNameFromIdWithError(u)
+			if err != nil {
+				_ = session.Rollback()
+				return err
+			}
+			if owner == oldName {
+				lockedPerm.Roles[i] = util.GetId(newName, name)
+			}
+		}
+		oldOwner := lockedPerm.Owner
+		lockedPerm.Owner = newName
+		_, err = session.ID(core.PK{oldOwner, lockedPerm.Name}).Cols("owner", "users", "roles").Update(lockedPerm)
 		if err != nil {
+			_ = session.Rollback()
 			return err
 		}
-		if name == oldName {
-			permission.Roles[i] = util.GetId(owner, newName)
-		}
-	}
-	permission.Owner = newName
-	_, err = session.Where("owner=?", oldName).Update(permission)
-	if err != nil {
-		return err
 	}
 
 	adapter := new(Adapter)
 	adapter.Owner = newName
 	_, err = session.Where("owner=?", oldName).Update(adapter)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 
@@ -510,6 +548,7 @@ func organizationChangeTrigger(oldName string, newName string) error {
 	ldap.Owner = newName
 	_, err = session.Where("owner=?", oldName).Update(ldap)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 
@@ -517,6 +556,7 @@ func organizationChangeTrigger(oldName string, newName string) error {
 	model.Owner = newName
 	_, err = session.Where("owner=?", oldName).Update(model)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 
@@ -524,6 +564,7 @@ func organizationChangeTrigger(oldName string, newName string) error {
 	payment.Owner = newName
 	_, err = session.Where("owner=?", oldName).Update(payment)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 
@@ -533,6 +574,7 @@ func organizationChangeTrigger(oldName string, newName string) error {
 	_, err = session.Where("organization=?", oldName).Update(record)
 	if err != nil {
 		if err.Error() != "no columns found to be updated" {
+			_ = session.Rollback()
 			return err
 		}
 	}
@@ -541,6 +583,7 @@ func organizationChangeTrigger(oldName string, newName string) error {
 	resource.Owner = newName
 	_, err = session.Where("owner=?", oldName).Update(resource)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 
@@ -548,6 +591,7 @@ func organizationChangeTrigger(oldName string, newName string) error {
 	syncer.Organization = newName
 	_, err = session.Where("organization=?", oldName).Update(syncer)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 
@@ -555,6 +599,7 @@ func organizationChangeTrigger(oldName string, newName string) error {
 	token.Organization = newName
 	_, err = session.Where("organization=?", oldName).Update(token)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 
@@ -562,6 +607,7 @@ func organizationChangeTrigger(oldName string, newName string) error {
 	webhook.Organization = newName
 	_, err = session.Where("organization=?", oldName).Update(webhook)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 

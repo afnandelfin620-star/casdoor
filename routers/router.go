@@ -195,6 +195,8 @@ func InitAPI() {
 	web.Router("/api/add-role", &controllers.ApiController{}, "POST:AddRole")
 	web.Router("/api/delete-role", &controllers.ApiController{}, "POST:DeleteRole")
 	web.Router("/api/upload-roles", &controllers.ApiController{}, "POST:UploadRoles")
+	web.Router("/api/add-user-to-role", &controllers.ApiController{}, "POST:AddUserToRole")
+	web.Router("/api/remove-user-from-role", &controllers.ApiController{}, "POST:RemoveUserFromRole")
 
 	web.Router("/api/get-permissions", &controllers.ApiController{}, "GET:GetPermissions")
 	web.Router("/api/get-permissions-by-submitter", &controllers.ApiController{}, "GET:GetPermissionsBySubmitter")

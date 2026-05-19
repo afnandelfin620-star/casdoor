@@ -23,6 +23,7 @@ import (
 	"github.com/casdoor/casdoor/i18n"
 	"github.com/casdoor/casdoor/util"
 	"github.com/xorm-io/core"
+	"github.com/xorm-io/xorm"
 )
 
 type Role struct {
@@ -90,47 +91,72 @@ func GetRole(id string) (*Role, error) {
 
 func UpdateRole(id string, role *Role, isGlobalAdmin bool, lang string) (bool, error) {
 	owner, name := util.GetOwnerAndNameFromIdNoCheck(id)
-	oldRole, err := getRole(owner, name)
-	if err != nil {
+
+	renameRole := name != role.Name
+
+	// All DB modifications (role update + reference renames) are in a single
+	// transaction so that partial success is impossible.
+	session := ormer.Engine.NewSession()
+	defer session.Close()
+
+	if err := session.Begin(); err != nil {
 		return false, err
 	}
 
-	if oldRole == nil {
+	// Lock and validate before any side effects (Casbin or DB).
+	oldRole := &Role{Owner: owner, Name: name}
+	existed, err := session.ForUpdate().Get(oldRole)
+	if err != nil {
+		_ = session.Rollback()
+		return false, err
+	}
+	if !existed {
+		_ = session.Rollback()
 		return false, nil
 	}
 
 	if !isGlobalAdmin && oldRole.Owner != role.Owner {
+		_ = session.Rollback()
 		return false, errors.New(i18n.Translate(lang, "auth:Unauthorized operation"))
 	}
 
-	renameRole := name != role.Name
+	// Remove Casbin policies only after validation passed.
 	oldPermissions := []*Permission{}
 	if renameRole {
 		oldPermissions, err = GetPermissionsByRole(id)
 		if err != nil {
+			_ = session.Rollback()
 			return false, err
 		}
 
 		for _, permission := range oldPermissions {
 			err = removePolicies(permission)
 			if err != nil {
+				_ = session.Rollback()
 				return false, err
 			}
 		}
 	}
 
 	if renameRole {
-		err := roleChangeTrigger(name, role.Name)
+		err = renameRoleReferences(session, owner, name, role.Name)
 		if err != nil {
+			_ = session.Rollback()
 			return false, err
 		}
 	}
 
-	affected, err := ormer.Engine.ID(core.PK{owner, name}).AllCols().Update(role)
+	affected, err := session.ID(core.PK{owner, name}).AllCols().Update(role)
 	if err != nil {
+		_ = session.Rollback()
 		return false, err
 	}
 
+	if err = session.Commit(); err != nil {
+		return false, err
+	}
+
+	// Add Casbin policies only after the DB commit succeeded.
 	if affected != 0 {
 		if renameRole {
 			permissions, err := GetPermissionsByRole(role.GetId())
@@ -294,23 +320,28 @@ func getRolesByUser(userId string) ([]*Role, error) {
 	return allRoles, nil
 }
 
-func roleChangeTrigger(oldName string, newName string) error {
-	session := ormer.Engine.NewSession()
-	defer session.Close()
-
-	err := session.Begin()
-	if err != nil {
-		return err
-	}
-
+// renameRoleReferences renames all references to oldName in role.Roles and
+// permission.Roles across all rows. It uses the caller-supplied session so that
+// the reference updates and the main role update are part of the same transaction.
+func renameRoleReferences(session *xorm.Session, orgOwner, oldName, newName string) error {
 	var roles []*Role
-	err = ormer.Engine.Find(&roles)
+	err := session.Find(&roles)
 	if err != nil {
 		return err
 	}
 
-	for _, role := range roles {
-		for j, u := range role.Roles {
+	for _, r := range roles {
+		lockedRole := &Role{Owner: r.Owner, Name: r.Name}
+		existed, err := session.ForUpdate().Get(lockedRole)
+		if err != nil {
+			return err
+		}
+		if !existed {
+			continue
+		}
+
+		modified := false
+		for j, u := range lockedRole.Roles {
 			if u == "*" {
 				continue
 			}
@@ -319,25 +350,37 @@ func roleChangeTrigger(oldName string, newName string) error {
 			if err != nil {
 				return err
 			}
-			if name == oldName {
-				role.Roles[j] = util.GetId(owner, newName)
+			if owner == orgOwner && name == oldName {
+				lockedRole.Roles[j] = util.GetId(owner, newName)
+				modified = true
 			}
 		}
-		_, err = session.Where("name=?", role.Name).And("owner=?", role.Owner).Update(role)
-		if err != nil {
-			return err
+		if modified {
+			_, err = session.ID(core.PK{lockedRole.Owner, lockedRole.Name}).Cols("roles").Update(lockedRole)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	var permissions []*Permission
-	err = ormer.Engine.Find(&permissions)
+	err = session.Find(&permissions)
 	if err != nil {
 		return err
 	}
 
-	for _, permission := range permissions {
-		for j, u := range permission.Roles {
-			// u = organization/username
+	for _, p := range permissions {
+		lockedPerm := &Permission{Owner: p.Owner, Name: p.Name}
+		existed, err := session.ForUpdate().Get(lockedPerm)
+		if err != nil {
+			return err
+		}
+		if !existed {
+			continue
+		}
+
+		modified := false
+		for j, u := range lockedPerm.Roles {
 			if u == "*" {
 				continue
 			}
@@ -346,17 +389,98 @@ func roleChangeTrigger(oldName string, newName string) error {
 			if err != nil {
 				return err
 			}
-			if name == oldName {
-				permission.Roles[j] = util.GetId(owner, newName)
+			if owner == orgOwner && name == oldName {
+				lockedPerm.Roles[j] = util.GetId(owner, newName)
+				modified = true
 			}
 		}
-		_, err = session.Where("name=?", permission.Name).And("owner=?", permission.Owner).Update(permission)
-		if err != nil {
-			return err
+		if modified {
+			_, err = session.ID(core.PK{lockedPerm.Owner, lockedPerm.Name}).Cols("roles").Update(lockedPerm)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	return session.Commit()
+	return nil
+}
+
+// AddUserToRole atomically appends a user to the role's Users list.
+// Uses SELECT ... FOR UPDATE inside a transaction to prevent lost updates
+// when multiple instances concurrently modify the same role's users.
+func AddUserToRole(owner, roleName, userId string) error {
+	session := ormer.Engine.NewSession()
+	defer session.Close()
+
+	if err := session.Begin(); err != nil {
+		return err
+	}
+
+	role := &Role{Owner: owner, Name: roleName}
+	existed, err := session.ForUpdate().Get(role)
+	if err != nil {
+		_ = session.Rollback()
+		return err
+	}
+	if !existed {
+		_ = session.Rollback()
+		return fmt.Errorf("the role: %s/%s does not exist", owner, roleName)
+	}
+
+	if util.InSlice(role.Users, userId) {
+		return session.Commit()
+	}
+
+	role.Users = append(role.Users, userId)
+	_, err = session.ID(core.PK{owner, roleName}).Cols("users").Update(role)
+	if err != nil {
+		_ = session.Rollback()
+		return err
+	}
+
+	if err = session.Commit(); err != nil {
+		return err
+	}
+
+	InvalidatePermissionEnforcerCache(owner)
+	return nil
+}
+
+// RemoveUserFromRole atomically removes a user from the role's Users list.
+// Uses SELECT ... FOR UPDATE inside a transaction to prevent lost updates
+// when multiple instances concurrently modify the same role's users.
+func RemoveUserFromRole(owner, roleName, userId string) error {
+	session := ormer.Engine.NewSession()
+	defer session.Close()
+
+	if err := session.Begin(); err != nil {
+		return err
+	}
+
+	role := &Role{Owner: owner, Name: roleName}
+	existed, err := session.ForUpdate().Get(role)
+	if err != nil {
+		_ = session.Rollback()
+		return err
+	}
+	if !existed {
+		_ = session.Rollback()
+		return fmt.Errorf("the role: %s/%s does not exist", owner, roleName)
+	}
+
+	role.Users = util.DeleteVal(role.Users, userId)
+	_, err = session.ID(core.PK{owner, roleName}).Cols("users").Update(role)
+	if err != nil {
+		_ = session.Rollback()
+		return err
+	}
+
+	if err = session.Commit(); err != nil {
+		return err
+	}
+
+	InvalidatePermissionEnforcerCache(owner)
+	return nil
 }
 
 func GetMaskedRoles(roles []*Role) []*Role {

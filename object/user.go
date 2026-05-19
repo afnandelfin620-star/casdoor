@@ -1349,35 +1349,64 @@ func userChangeTrigger(owner string, oldName string, newName string) error {
 	}
 
 	var roles []*Role
-	err = ormer.Engine.Find(&roles)
+	err = session.Find(&roles)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 
-	for _, role := range roles {
-		for j, u := range role.Users {
+	for _, r := range roles {
+		lockedRole := &Role{Owner: r.Owner, Name: r.Name}
+		existed, err := session.ForUpdate().Get(lockedRole)
+		if err != nil {
+			_ = session.Rollback()
+			return err
+		}
+		if !existed {
+			continue
+		}
+
+		modified := false
+		for j, u := range lockedRole.Users {
 			// u = organization/username
 			roleOwner, roleName, err := util.GetOwnerAndNameFromIdWithError(u)
 			if err != nil {
+				_ = session.Rollback()
 				return err
 			}
-			if roleName == oldName {
-				role.Users[j] = util.GetId(roleOwner, newName)
+			if roleOwner == owner && roleName == oldName {
+				lockedRole.Users[j] = util.GetId(roleOwner, newName)
+				modified = true
 			}
 		}
-		_, err = session.Where("name=?", role.Name).And("owner=?", role.Owner).Update(role)
-		if err != nil {
-			return err
+		if modified {
+			_, err = session.ID(core.PK{lockedRole.Owner, lockedRole.Name}).Cols("users").Update(lockedRole)
+			if err != nil {
+				_ = session.Rollback()
+				return err
+			}
 		}
 	}
 
 	var permissions []*Permission
-	err = ormer.Engine.Find(&permissions)
+	err = session.Find(&permissions)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
-	for _, permission := range permissions {
-		for j, u := range permission.Users {
+	for _, p := range permissions {
+		lockedPerm := &Permission{Owner: p.Owner, Name: p.Name}
+		existed, err := session.ForUpdate().Get(lockedPerm)
+		if err != nil {
+			_ = session.Rollback()
+			return err
+		}
+		if !existed {
+			continue
+		}
+
+		modified := false
+		for j, u := range lockedPerm.Users {
 			if u == "*" {
 				continue
 			}
@@ -1385,15 +1414,20 @@ func userChangeTrigger(owner string, oldName string, newName string) error {
 			// u = organization/username
 			permOwner, permName, err := util.GetOwnerAndNameFromIdWithError(u)
 			if err != nil {
+				_ = session.Rollback()
 				return err
 			}
-			if permName == oldName {
-				permission.Users[j] = util.GetId(permOwner, newName)
+			if permOwner == owner && permName == oldName {
+				lockedPerm.Users[j] = util.GetId(permOwner, newName)
+				modified = true
 			}
 		}
-		_, err = session.Where("name=?", permission.Name).And("owner=?", permission.Owner).Update(permission)
-		if err != nil {
-			return err
+		if modified {
+			_, err = session.ID(core.PK{lockedPerm.Owner, lockedPerm.Name}).Cols("users").Update(lockedPerm)
+			if err != nil {
+				_ = session.Rollback()
+				return err
+			}
 		}
 	}
 
@@ -1401,11 +1435,13 @@ func userChangeTrigger(owner string, oldName string, newName string) error {
 	resource.User = newName
 	_, err = session.Where("user=?", oldName).Update(resource)
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 
 	_, err = session.Where("owner = ? AND user_name = ?", owner, oldName).Cols("user_name").Update(&ThirdPartyLink{UserName: newName})
 	if err != nil {
+		_ = session.Rollback()
 		return err
 	}
 
