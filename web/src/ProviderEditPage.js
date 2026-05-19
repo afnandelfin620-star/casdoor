@@ -1035,16 +1035,20 @@ class ProviderEditPage extends React.Component {
                       </Row>
                     )
                 }
-                <Row style={{marginTop: "20px"}} >
-                  <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
-                    {this.getClientSecretLabel(this.state.provider)} :
-                  </Col>
-                  <Col span={22} >
-                    <Input value={this.state.provider.clientSecret} onChange={e => {
-                      this.updateProviderField("clientSecret", e.target.value);
-                    }} />
-                  </Col>
-                </Row>
+                {
+                  (this.state.provider.category === "Email" && (this.state.provider.type === "Azure ACS" || this.state.provider.type === "SendGrid" || this.state.provider.type === "Resend" || this.state.provider.type === "InnerNATS")) ? null : (
+                    <Row style={{marginTop: "20px"}} >
+                      <Col style={{marginTop: "5px"}} span={(Setting.isMobile()) ? 22 : 2}>
+                        {this.getClientSecretLabel(this.state.provider)} :
+                      </Col>
+                      <Col span={22} >
+                        <Input value={this.state.provider.clientSecret} onChange={e => {
+                          this.updateProviderField("clientSecret", e.target.value);
+                        }} />
+                      </Col>
+                    </Row>
+                  )
+                }
               </React.Fragment>
             )
         }

@@ -186,6 +186,10 @@ export const OtherProviderInfo = {
       logo: `${StaticBaseUrl}/img/email_resend.png`,
       url: "https://resend.com/",
     },
+    "InnerNATS": {
+      logo: `${StaticBaseUrl}/img/social_default.png`,
+      url: "https://nats.io/",
+    },
   },
   Storage: {
     "Local File System": {
