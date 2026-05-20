@@ -137,6 +137,15 @@ func (c *ApiController) AddUserToRole() {
 	id := c.Ctx.Input.Query("id")
 	userUlid := c.Ctx.Input.Query("userUlid")
 
+	if id == "" {
+		c.ResponseError("The parameter id is required")
+		return
+	}
+	if userUlid == "" {
+		c.ResponseError("The parameter userUlid is required")
+		return
+	}
+
 	owner, roleName, err := util.GetOwnerAndNameFromIdWithError(id)
 	if err != nil {
 		c.ResponseError(err.Error())
@@ -173,6 +182,15 @@ func (c *ApiController) AddUserToRole() {
 func (c *ApiController) RemoveUserFromRole() {
 	id := c.Ctx.Input.Query("id")
 	userUlid := c.Ctx.Input.Query("userUlid")
+
+	if id == "" {
+		c.ResponseError("The parameter id is required")
+		return
+	}
+	if userUlid == "" {
+		c.ResponseError("The parameter userUlid is required")
+		return
+	}
 
 	owner, roleName, err := util.GetOwnerAndNameFromIdWithError(id)
 	if err != nil {
