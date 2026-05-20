@@ -644,6 +644,24 @@ func GetUserByPhoneOnly(phone string) (*User, error) {
 	}
 }
 
+func GetUserByUid(uid string) (*User, error) {
+	if uid == "" {
+		return nil, nil
+	}
+
+	user := User{Uid: uid}
+	existed, err := ormer.Engine.Get(&user)
+	if err != nil {
+		return nil, err
+	}
+
+	if existed {
+		return &user, nil
+	} else {
+		return nil, nil
+	}
+}
+
 func GetUserByUserId(owner string, userId string) (*User, error) {
 	if owner == "" || userId == "" {
 		return nil, nil

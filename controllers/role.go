@@ -130,12 +130,12 @@ func (c *ApiController) AddRole() {
 // @Tag Role API
 // @Description add a user to a role
 // @Param   id     query    string  true        "The id ( owner/name ) of the role"
-// @Param   userId query    string  true        "The id ( owner/name ) of the user"
+// @Param   userUlid query    string  true        "The ulid of the user"
 // @Success 200 {object} controllers.Response The Response object
 // @router /add-user-to-role [post]
 func (c *ApiController) AddUserToRole() {
 	id := c.Ctx.Input.Query("id")
-	userId := c.Ctx.Input.Query("userId")
+	userUlid := c.Ctx.Input.Query("userUlid")
 
 	owner, roleName, err := util.GetOwnerAndNameFromIdWithError(id)
 	if err != nil {
@@ -143,7 +143,17 @@ func (c *ApiController) AddUserToRole() {
 		return
 	}
 
-	err = object.AddUserToRole(owner, roleName, userId)
+	user, err := object.GetUserByUid(userUlid)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+	if user == nil {
+		c.ResponseError("The user does not exist")
+		return
+	}
+
+	err = object.AddUserToRole(owner, roleName, util.GetId(user.Owner, user.Name))
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
@@ -157,12 +167,12 @@ func (c *ApiController) AddUserToRole() {
 // @Tag Role API
 // @Description remove a user from a role
 // @Param   id     query    string  true        "The id ( owner/name ) of the role"
-// @Param   userId query    string  true        "The id ( owner/name ) of the user"
+// @Param   userUlid query    string  true        "The ulid of the user"
 // @Success 200 {object} controllers.Response The Response object
 // @router /remove-user-from-role [post]
 func (c *ApiController) RemoveUserFromRole() {
 	id := c.Ctx.Input.Query("id")
-	userId := c.Ctx.Input.Query("userId")
+	userUlid := c.Ctx.Input.Query("userUlid")
 
 	owner, roleName, err := util.GetOwnerAndNameFromIdWithError(id)
 	if err != nil {
@@ -170,7 +180,17 @@ func (c *ApiController) RemoveUserFromRole() {
 		return
 	}
 
-	err = object.RemoveUserFromRole(owner, roleName, userId)
+	user, err := object.GetUserByUid(userUlid)
+	if err != nil {
+		c.ResponseError(err.Error())
+		return
+	}
+	if user == nil {
+		c.ResponseError("The user does not exist")
+		return
+	}
+
+	err = object.RemoveUserFromRole(owner, roleName, util.GetId(user.Owner, user.Name))
 	if err != nil {
 		c.ResponseError(err.Error())
 		return
