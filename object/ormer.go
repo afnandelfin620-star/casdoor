@@ -28,7 +28,8 @@ import (
 	"github.com/casdoor/casdoor/util"
 	xormadapter "github.com/casdoor/xorm-adapter/v3"
 	_ "github.com/go-sql-driver/mysql"  // db = mysql
-	_ "github.com/lib/pq"               // db = postgres
+	_ "github.com/jackc/pgx/v5/stdlib"  // db = postgres (pgx)
+	_ "github.com/lib/pq"               // db = postgres (syncer SSH dialer)
 	_ "github.com/microsoft/go-mssqldb" // db = mssql
 	"github.com/xorm-io/xorm"
 	"github.com/xorm-io/xorm/core"
@@ -203,7 +204,7 @@ func refineDataSourceNameForPostgres(dataSourceName string) string {
 }
 
 func createDatabaseForPostgres(driverName string, dataSourceName string, dbName string) error {
-	if driverName == "postgres" {
+	if driverName == "postgres" || driverName == "pgx" {
 		db, err := sql.Open(driverName, refineDataSourceNameForPostgres(dataSourceName))
 		if err != nil {
 			return err
@@ -239,7 +240,7 @@ func createDatabaseForPostgres(driverName string, dataSourceName string, dbName 
 }
 
 func (a *Ormer) CreateDatabase() error {
-	if a.driverName == "postgres" {
+	if a.driverName == "postgres" || a.driverName == "pgx" {
 		return nil
 	}
 
@@ -268,7 +269,7 @@ func (a *Ormer) open() error {
 		return err
 	}
 
-	if a.driverName == "postgres" {
+	if a.driverName == "postgres" || a.driverName == "pgx" {
 		schema := util.GetValueFromDataSourceName("search_path", dataSourceName)
 		if schema != "" {
 			engine.SetSchema(schema)
@@ -296,7 +297,7 @@ func (a *Ormer) openFromDb(db *sql.DB) error {
 		return err
 	}
 
-	if a.driverName == "postgres" {
+	if a.driverName == "postgres" || a.driverName == "pgx" {
 		schema := util.GetValueFromDataSourceName("search_path", dataSourceName)
 		if schema != "" {
 			engine.SetSchema(schema)

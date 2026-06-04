@@ -49,7 +49,7 @@ func GetConfigString(key string) string {
     if cftpConfig != nil {
         switch key {
         case "driverName":
-            return "postgres"
+            return "pgx"
         case "dbName":
             return cftpConfig.Database
         case "dataSourceName":

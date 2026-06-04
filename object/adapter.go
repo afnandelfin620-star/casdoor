@@ -194,7 +194,7 @@ func (adapter *Adapter) InitAdapter() error {
 		return err
 	}
 
-	if (adapter.UseSameDb || adapter.isBuiltIn()) && driverName == "postgres" {
+	if (adapter.UseSameDb || adapter.isBuiltIn()) && (driverName == "postgres" || driverName == "pgx") {
 		schema := util.GetValueFromDataSourceName("search_path", dataSourceName)
 		if schema != "" {
 			engine.SetSchema(schema)

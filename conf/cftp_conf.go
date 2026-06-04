@@ -3,12 +3,13 @@ package conf
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"    
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"log/slog"    
+	"log/slog"
+	"net/url"
 	"os"
-	"path/filepath"    
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -40,14 +41,6 @@ func (c *CftpConfig) GetDatabaseDSN() string {
 		pgAddress = fmt.Sprintf("%s.%s.svc.cluster.local:%s", externalServiceName, namespace, port)
 	}
 
-	// parse host and port from pgAddress (format: host:port)
-	host := pgAddress
-	port := "6432"
-	if idx := strings.LastIndex(pgAddress, ":"); idx > 0 {
-		host = pgAddress[:idx]
-		port = pgAddress[idx+1:]
-	}
-
 	// TLS: pgbouncer requires TLS
 	tlsDir := strings.TrimSpace(os.Getenv("TLS_DIR"))
 	if tlsDir == "" {
@@ -55,15 +48,19 @@ func (c *CftpConfig) GetDatabaseDSN() string {
 	}
 	sslRootCert := filepath.Join(tlsDir, "ca.crt")
 
-	databaseDSN := fmt.Sprintf("user=%s password=%s host=%s port=%s sslmode=verify-full sslrootcert=%s dbname=%s",
-		c.DBUser,
-		c.DBPassword,
-		host,
-		port,
-		sslRootCert,
-		c.Database)
+	q := url.Values{}
+	q.Set("sslmode", "verify-full")
+	q.Set("sslrootcert", sslRootCert)
 
-	return databaseDSN
+	u := &url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(c.DBUser, c.DBPassword),
+		Host:     pgAddress,
+		Path:     "/" + c.Database,
+		RawQuery: q.Encode(),
+	}
+
+	return u.String()
 }
 
 func (c *CftpConfig) checkRequiredFields() error {
