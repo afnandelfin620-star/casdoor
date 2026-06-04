@@ -28,26 +28,42 @@ type CftpConfig struct {
 	RedisPassword string `json:"RedisPassword"`
 }
 
-func (c* CftpConfig) GetDatabaseDSN() string {
-	mySqlAddress := os.Getenv("MYSQL_ADDR")
-	if mySqlAddress == "" {
-
-		mysqlExternalServiceName := "mysql-external"
+func (c *CftpConfig) GetDatabaseDSN() string {
+	pgAddress := os.Getenv("POSTGRES_ADDR")
+	if pgAddress == "" {
+		externalServiceName := "pgbouncer-external"
 		namespace, err := GetNamespace()
 		if err != nil {
 			namespace = "default"
 		}
-
-		mysqlPort := "3306"
-		mySqlAddress = fmt.Sprintf("%s.%s.svc.cluster.local:%s", mysqlExternalServiceName, namespace, mysqlPort)
+		port := "6432"
+		pgAddress = fmt.Sprintf("%s.%s.svc.cluster.local:%s", externalServiceName, namespace, port)
 	}
 
-    databaseDSN := fmt.Sprintf("%s:%s@tcp(%s)/",
+	// parse host and port from pgAddress (format: host:port)
+	host := pgAddress
+	port := "6432"
+	if idx := strings.LastIndex(pgAddress, ":"); idx > 0 {
+		host = pgAddress[:idx]
+		port = pgAddress[idx+1:]
+	}
+
+	// TLS: pgbouncer requires TLS
+	tlsDir := strings.TrimSpace(os.Getenv("TLS_DIR"))
+	if tlsDir == "" {
+		tlsDir = "/etc/tls"
+	}
+	sslRootCert := filepath.Join(tlsDir, "ca.crt")
+
+	databaseDSN := fmt.Sprintf("user=%s password=%s host=%s port=%s sslmode=verify-full sslrootcert=%s dbname=%s",
 		c.DBUser,
 		c.DBPassword,
-		mySqlAddress)
+		host,
+		port,
+		sslRootCert,
+		c.Database)
 
-    return databaseDSN
+	return databaseDSN
 }
 
 func (c *CftpConfig) checkRequiredFields() error {
