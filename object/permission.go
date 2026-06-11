@@ -108,6 +108,7 @@ func checkPermissionValid(permission *Permission) error {
 	}
 
 	enforcer.EnableAutoSave(false)
+	defer enforcer.EnableAutoSave(true)
 
 	policies := getPolicies(permission)
 	_, err = enforcer.AddPolicies(policies)
