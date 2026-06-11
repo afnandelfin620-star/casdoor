@@ -98,6 +98,35 @@ func (c *ApiController) Enforce() {
 			c.ResponseOk([]bool{false}, []string{enforcer.GetModelAndAdapter()})
 			return
 		}
+
+		permissions, err := object.GetPermissions(owner)
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
+		}
+
+		hasPermission := false
+		listPermissionIdMap := object.GroupPermissionsByModelAdapter(permissions)
+		for _, permissionIds := range listPermissionIdMap {
+			firstPermission, err := object.GetPermission(permissionIds[0])
+			if err != nil {
+				c.ResponseError(err.Error())
+				return
+			}
+
+			ok, err := object.Enforce(firstPermission, request, permissionIds...)
+			if err != nil {
+				c.ResponseError(err.Error())
+				return
+			}
+			if ok {
+				hasPermission = true
+				break
+			}
+		}
+
+		c.ResponseOk([]bool{hasPermission}, []string{enforcer.GetModelAndAdapter()})
+		return
 	}
 
 	if permissionId != "" {

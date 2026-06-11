@@ -345,7 +345,9 @@ func validatePolicySub(ptype string, policy []string) error {
 		return nil
 	}
 	if !util.IsValidULID(sub) {
-		return fmt.Errorf("invalid policy subject: %q must be a ULID (26 chars, Crockford base32)", sub)
+		if _, _, err := util.GetOwnerAndNameFromIdWithError(sub); err != nil {
+			return fmt.Errorf("invalid policy subject: %q must be a ULID (26 chars, Crockford base32) or format 'owner/name'", sub)
+		}
 	}
 	return nil
 }

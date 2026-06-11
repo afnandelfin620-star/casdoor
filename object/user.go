@@ -480,42 +480,29 @@ type UserIdInfo struct {
 // GetUserIdInfo looks up a user by one of three identifier types and returns
 // all three identifiers (ulid=Uid, uuid=Id, id=owner/name).
 func GetUserIdInfo(byUid, byUUID, byId string) (*UserIdInfo, error) {
-	var user *User
+	var user User
+	var existed bool
+	var err error
 
 	switch {
 	case byUid != "":
-		u := User{Uid: byUid}
-		existed, e := ormer.Engine.Get(&u)
-		if e != nil {
-			return nil, e
-		}
-		if existed {
-			user = &u
-		}
+		existed, err = ormer.Engine.Cols("owner", "name", "id", "uid").Where("uid = ?", byUid).Get(&user)
 	case byUUID != "":
-		u := User{Id: byUUID}
-		existed, e := ormer.Engine.Get(&u)
-		if e != nil {
-			return nil, e
-		}
-		if existed {
-			user = &u
-		}
+		existed, err = ormer.Engine.Cols("owner", "name", "id", "uid").Where("id = ?", byUUID).Get(&user)
 	case byId != "":
 		owner, name, e := util.GetOwnerAndNameFromIdWithError(byId)
 		if e != nil {
 			return nil, e
 		}
-		u, e := getUser(owner, name)
-		if e != nil {
-			return nil, e
-		}
-		user = u
+		existed, err = ormer.Engine.Cols("owner", "name", "id", "uid").Where("owner = ? and name = ?", owner, name).Get(&user)
 	default:
 		return nil, fmt.Errorf("one of byUid, byUUID, or byId must be provided")
 	}
 
-	if user == nil {
+	if err != nil {
+		return nil, err
+	}
+	if !existed {
 		return nil, nil
 	}
 

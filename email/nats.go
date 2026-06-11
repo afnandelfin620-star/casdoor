@@ -15,16 +15,14 @@
 package email
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/beego/beego/v2/core/logs"
+	"github.com/casdoor/casdoor/util"
 	"github.com/nats-io/nats.go"
-	ulidlib "github.com/oklog/ulid/v2"
 )
 
 var globalNatsConn *nats.Conn
@@ -125,7 +123,7 @@ func (p *InnerNatsEmailProvider) Send(fromAddress, fromName string, toAddresses 
 	}
 
 	msg := EmailMessage{
-		MailID:       generateULID(),
+		MailID:       util.GenerateULID(),
 		BusinessUnit: p.businessUnit,
 		FromAddress:  fromAddress,
 		FromName:     fromName,
@@ -150,9 +148,4 @@ func (p *InnerNatsEmailProvider) Send(fromAddress, fromName string, toAddresses 
 	}
 
 	return nil
-}
-
-func generateULID() string {
-	ms := ulidlib.Timestamp(time.Now())
-	return ulidlib.MustNew(ms, rand.Reader).String()
 }

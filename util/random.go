@@ -53,7 +53,7 @@ func GenerateUUID() string {
 // GenerateULID returns a ULID string (time-sortable, URL-safe, 26 chars).
 // Panics if the system entropy source is unavailable.
 func GenerateULID() string {
-	ms := ulidlib.Timestamp(time.Now())
+	ms := ulidlib.Timestamp(time.Now().UTC())
 	return ulidlib.MustNew(ms, rand.Reader).String()
 }
 
