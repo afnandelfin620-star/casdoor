@@ -27,6 +27,8 @@ import (
 	"github.com/casdoor/casdoor/conf"
 	"github.com/casdoor/casdoor/util"
 	xormadapter "github.com/casdoor/xorm-adapter/v3"
+    
+    ospath "path"
 )
 
 var permissionEnforcerCache sync.Map
@@ -71,25 +73,23 @@ func (e *HierarchicalEnforcer) hierarchicalEnforce(params []interface{}, act str
 	if !ok {
 		return false, nil
 	}
-	obj = strings.Trim(obj, "/")
-	hiParams[1] = obj
 
 	res, err := e.Enforcer.Enforce(hiParams...)
 	if err != nil || res {
 		return res, err
 	}
 
-	if !strings.Contains(obj, "/") {
-		return false, nil
-	}
+    for {
+		obj = ospath.Dir(obj)
 
-	parts := strings.Split(obj, "/")
-	for i := len(parts) - 1; i > 0; i-- {
-		parentParams := make([]interface{}, len(hiParams))
-		copy(parentParams, hiParams)
-		parentParams[1] = strings.Join(parts[:i], "/")
-		if parentRes, err := e.Enforcer.Enforce(parentParams...); err == nil && parentRes {
-			return true, nil
+		if obj == "." || (obj == "/" && hiParams[1] == "/") {
+			break
+		}
+
+		hiParams[1] = obj
+		res, err = e.Enforcer.Enforce(hiParams...)
+		if err != nil || res {
+			return res, err
 		}
 	}
 
@@ -128,19 +128,7 @@ func (e *HierarchicalEnforcer) BatchEnforce(requests [][]interface{}) ([]bool, e
 	return results, nil
 }
 
-func getPermissionEnforcer(p *Permission, permissionIDs ...string) (*HierarchicalEnforcer, error) {
-	cacheKey := p.GetId()
-	if len(permissionIDs) != 0 {
-		sorted := make([]string, len(permissionIDs))
-		copy(sorted, permissionIDs)
-		sort.Strings(sorted)
-		cacheKey = strings.Join(sorted, ",")
-	}
-
-	if cached, ok := permissionEnforcerCache.Load(cacheKey); ok {
-		return cached.(*HierarchicalEnforcer), nil
-	}
-
+func getPermissionEnforcerUncached(p *Permission, permissionIDs ...string) (*HierarchicalEnforcer, error) {
 	enforcer, err := casbin.NewEnforcer(&log.DefaultLogger{}, false)
 	if err != nil {
 		return nil, err
@@ -179,6 +167,27 @@ func getPermissionEnforcer(p *Permission, permissionIDs ...string) (*Hierarchica
 	}
 
 	hEnforcer := &HierarchicalEnforcer{enforcer}
+	return hEnforcer, nil
+}
+
+func getPermissionEnforcer(p *Permission, permissionIDs ...string) (*HierarchicalEnforcer, error) {
+	cacheKey := p.GetId()
+	if len(permissionIDs) != 0 {
+		sorted := make([]string, len(permissionIDs))
+		copy(sorted, permissionIDs)
+		sort.Strings(sorted)
+		cacheKey = strings.Join(sorted, ",")
+	}
+
+	if cached, ok := permissionEnforcerCache.Load(cacheKey); ok {
+		return cached.(*HierarchicalEnforcer), nil
+	}
+
+	hEnforcer, err := getPermissionEnforcerUncached(p, permissionIDs...)
+	if err != nil {
+		return nil, err
+	}
+
 	permissionEnforcerCache.Store(cacheKey, hEnforcer)
 	return hEnforcer, nil
 }
