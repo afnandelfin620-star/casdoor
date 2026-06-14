@@ -1255,6 +1255,48 @@ func DeleteUser(user *User) (bool, error) {
 		return false, err
 	}
 
+	// Remove user from all roles and direct permission assignments before deletion,
+	// so that re-registering the same user does not inherit old permissions/roles.
+	userId := user.GetId()
+
+	// 1. Collect roles that the user belongs to (both direct via role.Users
+	//    and indirect via role.Groups matching user.Groups).
+	roles, err := getRolesByUserInternal(userId)
+	if err != nil {
+		return false, err
+	}
+
+	// 2. Collect direct permission assignments.
+	permissions, err := getPermissionsByUser(userId)
+	if err != nil {
+		return false, err
+	}
+
+	// 3. Remove the user from every role they explicitly belong to.
+	//    Skip roles only inherited indirectly via group membership.
+	for _, role := range roles {
+		if util.InSlice(role.Users, userId) {
+			if err = RemoveUserFromRole(role.Owner, role.Name, userId); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	// 4. Remove the user from every permission they explicitly belong to.
+	//    RemoveUserFromPermission handles both the database column update and
+	//    the Casbin policy sync in permission_rule table.
+	for _, permission := range permissions {
+		if util.InSlice(permission.Users, userId) {
+			if err = RemoveUserFromPermission(permission.Owner, permission.Name, userId); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	// 5. Invalidate the permission enforcer cache so that stale in-memory
+	//    enforcers are rebuilt from the cleaned database state.
+	InvalidatePermissionEnforcerCache(user.Owner)
+
 	organization, err := GetOrganizationByUser(user)
 	if err != nil {
 		return false, err

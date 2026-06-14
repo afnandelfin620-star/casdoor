@@ -275,6 +275,63 @@ func DeletePermission(permission *Permission) (bool, error) {
 	return affected, nil
 }
 
+// RemoveUserFromPermission atomically removes a user from the permission's Users list
+// and syncs the Casbin policies in the permission_rule table. It uses SELECT ... FOR UPDATE
+// inside a transaction to prevent lost updates when multiple instances concurrently modify
+// the same permission's users.
+func RemoveUserFromPermission(owner, permissionName, userId string) error {
+	session := ormer.Engine.NewSession()
+	defer session.Close()
+
+	if err := session.Begin(); err != nil {
+		return err
+	}
+
+	permission := &Permission{Owner: owner, Name: permissionName}
+	existed, err := session.ForUpdate().Get(permission)
+	if err != nil {
+		_ = session.Rollback()
+		return err
+	}
+	if !existed {
+		_ = session.Rollback()
+		return fmt.Errorf("the permission: %s/%s does not exist", owner, permissionName)
+	}
+
+	if !util.InSlice(permission.Users, userId) {
+		_ = session.Rollback()
+		return nil
+	}
+
+	oldPermission := &Permission{}
+	*oldPermission = *permission
+
+	permission.Users = util.DeleteVal(permission.Users, userId)
+	_, err = session.ID(core.PK{owner, permissionName}).Cols("users").Update(permission)
+	if err != nil {
+		_ = session.Rollback()
+		return err
+	}
+
+	if err = session.Commit(); err != nil {
+		return err
+	}
+
+	// Sync Casbin policies in permission_rule table
+	err = removePolicies(oldPermission)
+	if err != nil {
+		return err
+	}
+
+	err = addPolicies(permission)
+	if err != nil {
+		return err
+	}
+
+	InvalidatePermissionEnforcerCache(owner)
+	return nil
+}
+
 func getPermissionsByUser(userId string) ([]*Permission, error) {
 	permissions := []*Permission{}
 	err := ormer.Engine.Where("users like ?", "%"+userId+"\"%").Find(&permissions)
