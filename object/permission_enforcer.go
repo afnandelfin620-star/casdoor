@@ -408,13 +408,30 @@ func appendRuntimeGroupingPolicy(groupingPolicies *[][]string, visited map[strin
 	visited[key] = struct{}{}
 }
 
+func getUsersByGroup(group string) ([]string, error) {
+	users := []*User{}
+	err := ormer.Engine.Where("groups like ?", "%\""+group+"\"%").Find(&users)
+	if err != nil {
+		return nil, err
+	}
+
+	userIds := make([]string, 0, len(users))
+	for _, user := range users {
+		if util.InSlice(user.Groups, group) {
+			userIds = append(userIds, user.GetId())
+		}
+	}
+	return userIds, nil
+}
+
 func getRuntimeGroupingPolicies(permissions []*Permission) ([][]string, error) {
 	var groupingPolicies [][]string
 	visitedPolicies := map[string]struct{}{}
 	roleResolver := newPermissionRoleResolver()
 
-	// Collect all unique user identifiers across all resolved roles.
+	// Collect all unique user identifiers and group names across all resolved roles.
 	userSet := map[string]struct{}{}
+	groupSet := map[string]struct{}{}
 	for _, permission := range permissions {
 		for _, roleId := range permission.Roles {
 			visited := map[string]struct{}{}
@@ -426,6 +443,9 @@ func getRuntimeGroupingPolicies(permissions []*Permission) ([][]string, error) {
 				for _, subUser := range role.Users {
 					userSet[subUser] = struct{}{}
 				}
+				for _, group := range role.Groups {
+					groupSet[group] = struct{}{}
+				}
 			}
 		}
 	}
@@ -434,6 +454,30 @@ func getRuntimeGroupingPolicies(permissions []*Permission) ([][]string, error) {
 		userList = append(userList, u)
 	}
 	uidMap := buildUserUidMap(userList)
+
+	// Build group → users mapping so that role.Groups inheritance works
+	// in runtime grouping policies (e.g. a role assigned to "group_student"
+	// should be inherited by every user who belongs to that group).
+	groupUsersMap := map[string][]string{}
+	for group := range groupSet {
+		groupUsers, err := getUsersByGroup(group)
+		if err != nil {
+			return nil, err
+		}
+		groupUsersMap[group] = groupUsers
+	}
+
+	// Extend uidMap with users found via group membership.
+	allGroupUsers := make([]string, 0)
+	for _, users := range groupUsersMap {
+		allGroupUsers = append(allGroupUsers, users...)
+	}
+	groupUidMap := buildUserUidMap(allGroupUsers)
+	for k, v := range groupUidMap {
+		if _, ok := uidMap[k]; !ok {
+			uidMap[k] = v
+		}
+	}
 
 	for _, permission := range permissions {
 		domainExist := len(permission.Domains) > 0
@@ -464,6 +508,20 @@ func getRuntimeGroupingPolicies(permissions []*Permission) ([][]string, error) {
 						}
 					} else {
 						appendRuntimeGroupingPolicy(&groupingPolicies, visitedPolicies, newRuntimeGroupingPolicy(subRole, currentRoleID, ""))
+					}
+				}
+
+				// Add grouping policies for users who inherit this role via group membership.
+				for _, group := range role.Groups {
+					for _, subUser := range groupUsersMap[group] {
+						sub := uidMap[subUser]
+						if domainExist {
+							for _, domain := range permission.Domains {
+								appendRuntimeGroupingPolicy(&groupingPolicies, visitedPolicies, newRuntimeGroupingPolicy(sub, currentRoleID, domain))
+							}
+						} else {
+							appendRuntimeGroupingPolicy(&groupingPolicies, visitedPolicies, newRuntimeGroupingPolicy(sub, currentRoleID, ""))
+						}
 					}
 				}
 			}
