@@ -72,6 +72,26 @@ func main() {
 		return
 	}
 
+	var logAdapter string
+	logConfigMap := make(map[string]interface{})
+	err := json.Unmarshal([]byte(conf.GetConfigString("logConfig")), &logConfigMap)
+	if err != nil {
+		panic(err)
+	}
+	_, ok := logConfigMap["adapter"]
+	if !ok {
+		logAdapter = "file"
+	} else {
+		logAdapter = logConfigMap["adapter"].(string)
+	}
+	if logAdapter == "console" {
+		logs.Reset()
+	}
+	err = logs.SetLogger(logAdapter, conf.GetConfigString("logConfig"))
+	if err != nil {
+		panic(err)
+	}
+
 	object.InitDefaultStorageProvider()
 	object.InitLogProviders()
 	object.InitLdapAutoSynchronizer()
@@ -109,26 +129,6 @@ func main() {
 	web.InsertFilter("*", web.BeforeRouter, routers.RecordMessage)
 	web.InsertFilter("*", web.BeforeRouter, routers.FieldValidationFilter)
 	web.InsertFilter("*", web.AfterExec, routers.AfterRecordMessage, web.WithReturnOnOutput(false))
-
-	var logAdapter string
-	logConfigMap := make(map[string]interface{})
-	err := json.Unmarshal([]byte(conf.GetConfigString("logConfig")), &logConfigMap)
-	if err != nil {
-		panic(err)
-	}
-	_, ok := logConfigMap["adapter"]
-	if !ok {
-		logAdapter = "file"
-	} else {
-		logAdapter = logConfigMap["adapter"].(string)
-	}
-	if logAdapter == "console" {
-		logs.Reset()
-	}
-	err = logs.SetLogger(logAdapter, conf.GetConfigString("logConfig"))
-	if err != nil {
-		panic(err)
-	}
 
 	port := web.AppConfig.DefaultInt("httpport", 8000)
 	// logs.SetLevel(logs.LevelInformational)
