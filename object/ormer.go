@@ -269,6 +269,10 @@ func (a *Ormer) open() error {
 		return err
 	}
 
+	db := engine.DB().DB
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+
 	if a.driverName == "postgres" || a.driverName == "pgx" {
 		schema := util.GetValueFromDataSourceName("search_path", dataSourceName)
 		if schema != "" {
@@ -296,6 +300,9 @@ func (a *Ormer) openFromDb(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
 
 	if a.driverName == "postgres" || a.driverName == "pgx" {
 		schema := util.GetValueFromDataSourceName("search_path", dataSourceName)

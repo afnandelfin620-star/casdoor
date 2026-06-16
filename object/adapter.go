@@ -194,6 +194,10 @@ func (adapter *Adapter) InitAdapter() error {
 		return err
 	}
 
+	db := engine.DB().DB
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+
 	if (adapter.UseSameDb || adapter.isBuiltIn()) && (driverName == "postgres" || driverName == "pgx") {
 		schema := util.GetValueFromDataSourceName("search_path", dataSourceName)
 		if schema != "" {
