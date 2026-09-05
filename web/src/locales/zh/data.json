@@ -809,7 +809,7 @@
     "WeChat": "微信",
     "WebAuthn": "Web身份验证",
     "sign up now": "立即注册",
-    "username, Email or phone": "邮箱"
+    "username, Email or phone": "邮箱地址"
   },
   "mfa": {
     "Each time you sign in to your Account, you'll need your password and a authentication code": "每次登录帐户时，都需要密码和认证码",
