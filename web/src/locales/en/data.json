@@ -754,7 +754,7 @@
     "unsynced": "unsynced"
   },
   "login": {
-    "Auto sign in": "Auto sign in",
+    "Auto sign in": "Keep me signed in",
     "Back button": "Back button",
     "Click the button below to sign in with Telegram": "Click the button below to sign in with Telegram",
     "Continue with": "Continue with",
@@ -771,11 +771,11 @@
     "Logging out...": "Logging out...",
     "MetaMask plugin not detected": "MetaMask plugin not detected",
     "Model loading failure": "Model loading failure",
-    "No account?": "No account?",
+    "No account?": "Don't have an account?",
     "Or sign in with another account": "Or sign in with another account",
     "Please ensure sufficient lighting and align your face in the center of the recognition box": "Please ensure sufficient lighting and align your face in the center of the recognition box",
     "Please ensure that you have a camera device for facial recognition": "Please ensure that you have a camera device for facial recognition",
-    "Please input your Email or Phone!": "Please input your Email or Phone!",
+    "Please input your Email or Phone!": "Please input your Email!",
     "Please input your Email!": "Please input your Email!",
     "Please input your LDAP username!": "Please input your LDAP username!",
     "Please input your Phone!": "Please input your Phone!",
@@ -808,8 +808,8 @@
     "Verification code": "Verification code",
     "WeChat": "WeChat",
     "WebAuthn": "WebAuthn",
-    "sign up now": "sign up now",
-    "username, Email or phone": "username, Email or phone"
+    "sign up now": "Sign up",
+    "username, Email or phone": "Email"
   },
   "mfa": {
     "Each time you sign in to your Account, you'll need your password and a authentication code": "Each time you sign in to your Account, you'll need your password and a authentication code",
@@ -1356,7 +1356,7 @@
     "Accept": "Accept",
     "Agreement": "Agreement",
     "Decline": "Decline",
-    "Have account?": "Have account?",
+    "Have account?": "Already have an account?",
     "Label": "Label",
     "Label HTML": "Label HTML",
     "Options": "Options",
@@ -1395,7 +1395,7 @@
     "Username - Tooltip": "The username to authenticate with the external service or identity provider",
     "Your account has been created!": "Your account has been created!",
     "Your confirmed password is inconsistent with the password!": "Your confirmed password is inconsistent with the password!",
-    "sign in now": "sign in now"
+    "sign in now": "Sign in"
   },
   "site": {
     "Alert interval": "Alert interval",
