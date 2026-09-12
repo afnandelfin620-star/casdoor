@@ -18,9 +18,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/beego/beego/v2/core/logs"
+	"github.com/casdoor/casdoor/conf"
 	"github.com/casdoor/casdoor/util"
 	"github.com/nats-io/nats.go"
 )
@@ -40,29 +40,8 @@ type EmailMessage struct {
 	Content      string   `json:"content"`
 }
 
-func getNamespace() (string, error) {
-	data, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(data)), nil
-}
-
-func getEndpointAddress(envName, svcName, port string) string {
-	endpoint := os.Getenv(envName)
-	if endpoint == "" {
-		endpoint = svcName
-		namespace, err := getNamespace()
-		if err != nil {
-			namespace = "default"
-		}
-		endpoint = fmt.Sprintf("%s.%s.svc.cluster.local:%s", svcName, namespace, port)
-	}
-	return endpoint
-}
-
 func InitNatsConnection() {
-	natAddress := getEndpointAddress("NATS_ADDR", "nats", "4222")
+	natAddress := conf.GetEndpointAddress("NATS_ADDR", "nats", "4222")
 
 	opts := []nats.Option{
 		nats.Name("casdoor"),
