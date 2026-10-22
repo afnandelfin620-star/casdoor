@@ -14,6 +14,7 @@
 
 import * as Setting from "../Setting";
 import i18next from "i18next";
+import {getLoginErrorMessage} from "../auth/AuthError";
 
 export function getGlobalUsers(page, pageSize, field = "", value = "", sortField = "", sortOrder = "") {
   return fetch(`${Setting.ServerUrl}/api/get-global-users?p=${page}&pageSize=${pageSize}&field=${field}&value=${value}&sortField=${sortField}&sortOrder=${sortOrder}`, {
@@ -140,7 +141,7 @@ export function sendCode(captchaType, captchaToken, clientSecret, method, countr
       Setting.showMessage("success", i18next.t("user:Verification code sent"));
       return true;
     } else {
-      Setting.showMessage("error", res.msg);
+      Setting.showMessage("error", method === "login" ? (getLoginErrorMessage(res.msg) ?? res.msg) : res.msg);
       return false;
     }
   });

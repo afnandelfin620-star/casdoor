@@ -22,6 +22,7 @@ import OrganizationSelect from "../common/select/OrganizationSelect";
 import * as Conf from "../Conf";
 import * as Obfuscator from "./Obfuscator";
 import * as AuthBackend from "./AuthBackend";
+import {getLoginErrorMessage} from "./AuthError";
 import * as OrganizationBackend from "../backend/OrganizationBackend";
 import * as ApplicationBackend from "../backend/ApplicationBackend";
 import * as Provider from "./Provider";
@@ -520,7 +521,7 @@ class LoginPage extends React.Component {
         if (res.status === "ok") {
           Setting.checkLoginMfa(res, values, casParams, loginHandler, this);
         } else {
-          Setting.showMessage("error", `${i18next.t("application:Failed to sign in")}: ${res.msg}`);
+          Setting.showMessage("error", getLoginErrorMessage(res.msg) ?? `${i18next.t("application:Failed to sign in")}: ${res.msg}`);
           if (shouldRefreshCaptcha) {
             this.refreshInlineCaptcha();
           }
@@ -599,7 +600,7 @@ class LoginPage extends React.Component {
           if (res.status === "ok") {
             Setting.checkLoginMfa(res, values, oAuthParams, loginHandler, this);
           } else {
-            Setting.showMessage("error", `${i18next.t("application:Failed to sign in")}: ${res.msg}`);
+            Setting.showMessage("error", getLoginErrorMessage(res.msg) ?? `${i18next.t("application:Failed to sign in")}: ${res.msg}`);
             if (shouldRefreshCaptcha) {
               this.refreshInlineCaptcha();
             }

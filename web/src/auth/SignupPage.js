@@ -16,6 +16,7 @@ import React from "react";
 import {Button, Form, Input, Popover, Radio, Result, Row, Select, message} from "antd";
 import * as Setting from "../Setting";
 import * as AuthBackend from "./AuthBackend";
+import {getSignupErrorMessage} from "./AuthError";
 import * as ProviderButton from "./ProviderButton";
 import i18next from "i18next";
 import * as Util from "./Util";
@@ -331,7 +332,7 @@ class SignupPage extends React.Component {
             Setting.goToLinkSoft(this, this.getResultPath(application, values));
           }
         } else {
-          Setting.showMessage("error", res.msg);
+          Setting.showMessage("error", getSignupErrorMessage(res.msg));
         }
       });
   }
