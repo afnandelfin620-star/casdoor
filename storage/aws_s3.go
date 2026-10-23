@@ -15,6 +15,7 @@
 package storage
 
 import (
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/casdoor/oss"
 	"github.com/casdoor/oss/s3"
 )
@@ -27,6 +28,7 @@ func NewAwsS3StorageProvider(clientId string, clientSecret string, region string
 		Bucket:     bucket,
 		Endpoint:   endpoint,
 		S3Endpoint: endpoint,
+		ACL:        string(types.BucketCannedACLPublicRead),
 	})
 
 	return sp
