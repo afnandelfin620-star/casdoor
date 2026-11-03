@@ -791,7 +791,7 @@ class SignupPage extends React.Component {
         <Form.Item
           name="confirm"
           className="signup-confirm"
-          label={signupItem.label ? signupItem.label : i18next.t("general:Confirm")}
+          label={signupItem.label && signupItem.label !== "Confirm" ? signupItem.label : i18next.t("signup:Confirm password")}
           dependencies={["password"]}
           hasFeedback
           rules={[
